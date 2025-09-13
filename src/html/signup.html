@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Sign up</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="/src/css/signup.css" />
+</head>
+
+<body>
+    <main class="center">
+        <h1>Create account</h1>
+
+        <form id="signup-form" class="form" novalidate>
+            <label>
+                <span>Username</span>
+                <input id="username" autocomplete="username" required />
+            </label>
+
+            <label>
+                <span>Password</span>
+                <input id="password" type="password" autocomplete="new-password" required />
+            </label>
+
+            <button id="signup-btn" type="submit">Sign up</button>
+            <p id="error" class="error" role="alert" aria-live="polite"></p>
+        </form>
+
+        <p class="muted">
+            Already have an account?
+            <a href="/index.html">Log in</a>
+        </p>
+    </main>
+
+    <script src="/src/js/signup.js" type="module"></script>
+</body>
+
+</html>

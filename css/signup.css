@@ -1,0 +1,4 @@
+/* signup.css */
+@import url('/src/css/main.css');
+.center .title{margin:0 0 12px 0}
+.center .hint{margin-top:6px}

@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "cockroachdb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  username     String   @unique
+  passwordHash String
+  email        String?  @unique
+  name         String?
+  avatarUrl    String?
+  role         String?
+  prefs        Json?
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now()) @db.Timestamp
+  updatedAt    DateTime @updatedAt      @db.Timestamp
+  sleepLogs    SleepLog[]
+  schedules    Schedule[]
+  fatigueLogs  FatigueLog[]
+}
+
+model SleepLog {
+  username    String
+  date        String
+  sleepStart  String?
+  sleepEnd    String?
+  fatigue     Int?
+  fatigueLogs FatigueLog[] @relation("SleepLogFatigue")
+  user        User         @relation(fields: [username], references: [username], onDelete: Cascade)
+
+  @@id([username, date])
+  @@index([username, date])
+}
+
+model Schedule {
+  username String
+  date     String
+  start    String
+  end      String
+  title    String
+  user     User   @relation(fields: [username], references: [username], onDelete: Cascade)
+
+  @@id([username, date, start])
+  @@index([username, date])
+}
+
+model FatigueLog {
+  id               String      @id
+  username         String
+  recordedAt       DateTime    @default(now())
+  type             FatigueType
+  value            Int
+  note             String?
+  sleepLogUsername String?
+  sleepLogDate     String?
+  sleepLog         SleepLog?   @relation("SleepLogFatigue", fields: [sleepLogUsername, sleepLogDate], references: [username, date])
+  user             User        @relation(fields: [username], references: [username], onDelete: Cascade)
+
+  @@index([username, recordedAt])
+  @@index([username, type, recordedAt])
+}
+
+enum FatigueType {
+  BEFORE_SLEEP
+  AFTER_SLEEP
+  DAYTIME
+}

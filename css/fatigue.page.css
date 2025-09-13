@@ -1,0 +1,9 @@
+/* fatigue.page.css */
+@import url('/src/css/main.css');
+
+.tabbar{display:flex;gap:8px;border:1px solid var(--border);border-radius:12px;padding:6px;background:#0a1220}
+.tab{padding:8px 12px;border-radius:10px;border:1px solid transparent;background:transparent;color:#cbd5e1;cursor:pointer}
+.tab.active{background:linear-gradient(180deg,#2563eb,#1d4ed8); border-color:#1d4ed8}
+.group{display:grid;gap:8px}
+.group h4{margin:8px 0 0 0;font-size:14px;color:#e2e8f0}
+.hr{height:1px;background:linear-gradient(90deg, transparent, #1f2937, transparent); margin:8px 0}

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Login</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="/styles.css" />
+</head>
+
+<body>
+    <main class="center">
+        <h1>Login</h1>
+
+        <form id="login-form" class="form">
+            <label>
+                <span>Username</span>
+                <input id="login-username" autocomplete="username" />
+            </label>
+
+            <label>
+                <span>Password</span>
+                <input id="login-password" type="password" autocomplete="current-password" />
+            </label>
+
+            <button id="login-btn" type="submit">Sign in</button>
+            <p id="error" class="error" role="alert" aria-live="polite"></p>
+        </form>
+
+        <p class="muted">
+            No account?
+            <a href="/src/html/signup.html">Create one</a>
+        </p>
+    </main>
+
+    <script src="/index.js" type="module"></script>
+</body>
+
+</html>

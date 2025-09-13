@@ -1,0 +1,53 @@
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+.center {
+    max-width: 420px;
+    margin: 10vh auto;
+    padding: 24px 20px;
+    display: grid;
+    gap: 16px;
+}
+
+.form {
+    display: grid;
+    gap: 12px;
+}
+
+label {
+    display: grid;
+    gap: 6px;
+}
+
+input {
+    padding: 10px;
+    border: 1px solid currentColor;
+    border-radius: 6px;
+}
+
+button {
+    padding: 10px 14px;
+    border: 1px solid currentColor;
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+}
+
+.error {
+    min-height: 1.25em;
+}
+
+.muted {
+    opacity: .8;
+}

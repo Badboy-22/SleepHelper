@@ -1,0 +1,5 @@
+/* schedule.page.css */
+@import url('/src/css/main.css');
+
+.section-title{font-weight:700}
+#sch-list .time{font-weight:700;color:#cbd5e1}

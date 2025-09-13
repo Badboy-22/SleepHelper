@@ -1,0 +1,153 @@
+/* Minimal, clean styles */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: #111;
+  background: #fff;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #fff;
+  border-bottom: 1px solid #ddd;
+}
+
+.nav {
+  display: flex;
+  gap: 16px;
+  padding: 10px 12px;
+}
+
+.nav a {
+  text-decoration: none;
+  color: #111;
+}
+
+.nav a.active {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.wrap {
+  width: 90%;
+  max-width: 960px;
+  margin: 18px auto;
+  display: grid;
+  gap: 16px;
+}
+
+.card {
+  border: 2px solid #bdbdbd;
+  border-radius: 12px;
+  padding: 16px;
+  background: #fff;
+}
+
+h1,
+h2 {
+  margin: 0 0 10px;
+}
+
+.muted {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field.full {
+  grid-column: 1 / -1;
+}
+
+label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+input,
+textarea,
+button {
+  font: inherit;
+  padding: 10px 12px;
+  border: 2px solid #bdbdbd;
+  border-radius: 10px;
+  background: #fff;
+  outline: none;
+}
+
+textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.primary {
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.secondary {
+  cursor: pointer;
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pill {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 2px solid #bdbdbd;
+  background: #fafafa;
+}
+
+.pill.okay {
+  border-color: #bdbdbd;
+}
+
+.pill.warn {
+  border-color: #e6a700;
+  background: #fff8e6;
+}
+
+.pill.bad {
+  border-color: #d22;
+  background: #ffecec;
+}
+
+.result {
+  white-space: pre-wrap;
+  color: #222;
+  min-height: 2.2em;
+}
+
+@media (max-width: 720px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

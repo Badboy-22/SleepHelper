@@ -1,0 +1,7 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"/><title>피로도</title><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/src/css/fatigue.page.css"/></head>
+<body><header class="bar"><h1>피로도</h1><nav><a href="/src/html/schedule.html">일정</a><a href="/src/html/infos.html">정보 요약</a><a href="/src/html/recommend.html">추천</a><a href="/src/html/fatigue.page.html">피로도</a><button id="logout">로그아웃</button></nav></header>
+<main class="page"><section class="card"><h2 class="section-title">피로도 추가</h2><div class="tabbar" role="tablist" aria-label="피로도 타입"><button class="tab active" data-type="before" role="tab" aria-selected="true">자기 전</button><button class="tab" data-type="after" role="tab" aria-selected="false">자고 난 후</button><button class="tab" data-type="day" role="tab" aria-selected="false">낮에</button></div>
+<div class="group"><label>값 (0 ~ 100)<input id="fatigue-value" type="number" min="0" max="100" required /></label><label>날짜<input id="fatigue-date" type="date" /></label><label>메모 (선택)<textarea id="fatigue-note" placeholder="간단 메모"></textarea></label><div class="row"><button id="fatigue-save">저장</button><span id="fatigue-msg" class="small"></span></div></div></section>
+<aside class="card"><h2 class="section-title">피로도 기록 (날짜별)</h2><div class="row"><button id="fatigue-refresh">새로고침</button><span id="fatigue-status" class="small"></span></div><div id="fatigue-groups"></div></aside></main>
+<script src="/src/js/fatigue.page.js"></script></body></html>
