@@ -11,8 +11,8 @@
     <h1>일정</h1>
     <nav>
       <a href="/src/html/fatigue.page.html">피로도</a>
+      <a href="/src/html/schedule.html">일정</a>
       <a href="/src/html/infos.html">정보 요약</a>
-      <button id="logout" class="ghost">로그아웃</button>
     </nav>
   </header>
 
@@ -20,23 +20,26 @@
     <!-- 왼쪽: 추가 -->
     <section class="card">
       <h2 class="section-title">일정 추가</h2>
-      <div class="group">
-        <label>제목
-          <input id="sch-title" type="text" placeholder="예: 수업 / 회의" />
-        </label>
-        <label>시작
-          <input id="sch-start" type="datetime-local" />
-        </label>
-        <label>종료
-          <input id="sch-end" type="datetime-local" />
-        </label>
-        <label>메모 (선택)
-          <textarea id="sch-note" placeholder="간단 메모"></textarea>
-        </label>
-        <div class="row">
-          <button id="sch-save">저장</button>
-          <span id="sch-msg" class="small"></span>
-        </div>
+
+      <label>제목
+        <input id="scheduleTitleInput" type="text" placeholder="예: 수업/회의" required/>
+      </label>
+
+      <label>시작
+        <input id="scheduleStartInput" type="datetime-local"/>
+      </label>
+
+      <label>종료
+        <input id="scheduleEndInput" type="datetime-local"/>
+      </label>
+
+      <label>메모 (선택)
+        <textarea id="scheduleNoteInput" placeholder="간단 메모"></textarea>
+      </label>
+
+      <div class="row">
+        <button id="scheduleSaveBtn">저장</button>
+        <span id="scheduleMessage" class="small"></span>
       </div>
     </section>
 
@@ -44,11 +47,11 @@
     <aside class="card">
       <h2 class="section-title">일정 (날짜별)</h2>
       <div class="row">
-        <label>날짜 <input id="view-date" type="date"/></label>
-        <button id="sch-refresh" class="ghost">새로고침</button>
-        <span id="sch-status" class="small"></span>
+        <label>날짜 <input id="scheduleViewDateInput" type="date"/></label>
+        <button id="scheduleRefreshBtn">새로고침</button>
+        <span id="scheduleStatus" class="small"></span>
       </div>
-      <ul id="sch-list" class="list"></ul>
+      <ul id="schedule-list" class="list"></ul>
     </aside>
   </main>
 

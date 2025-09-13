@@ -1,6 +1,0 @@
-<!doctype html>
-<html lang="ko"><head><meta charset="utf-8"/><title>일정</title><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/src/css/schedule.page.css"/></head>
-<body><header class="bar"><h1>일정</h1><nav><a href="/src/html/fatigue.page.html">피로도</a><a href="/src/html/infos.html">정보 요약</a><a href="/src/html/recommend.html">추천</a><a href="/src/html/schedule.html">일정</a><button id="logout">로그아웃</button></nav></header>
-<main class="page"><section class="card"><h2 class="section-title">일정 추가</h2><div class="group"><label>제목<input id="sch-title" type="text" placeholder="예: 수업 / 회의" /></label><label>시작<input id="sch-start" type="datetime-local" /></label><label>종료<input id="sch-end" type="datetime-local" /></label><label>메모 (선택)<textarea id="sch-note" placeholder="간단 메모"></textarea></label><div class="row"><button id="sch-save">저장</button><span id="sch-msg" class="small"></span></div></div></section>
-<aside class="card"><h2 class="section-title">일정 (날짜별)</h2><div class="row"><label>날짜 <input id="view-date" type="date"/></label><button id="sch-refresh">새로고침</button><span id="sch-status" class="small"></span></div><ul id="sch-list" class="list"></ul></aside></main>
-<script src="/src/js/schedule.page.js"></script></body></html>

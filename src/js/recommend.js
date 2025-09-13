@@ -1,5 +1,3 @@
-// recommend.js — shows sleep window & must-wake, then sends to Gemini via POST /api/gemini/recommend
-
 function pad(n) { return String(n).padStart(2, '0'); }
 function todayYMD() {
     const d = new Date();
