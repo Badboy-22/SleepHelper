@@ -1,51 +1,43 @@
+// server/src/sleep.js
 import { Router } from "express";
-import { prisma } from "./prisma.js";
+import { db } from "./firebase.js";
 import { requireAuth } from "./session.js";
 
 const r = Router();
+const col = () => db.collection("sleepLogs");
 
 // GET /api/sleep?date=YYYY-MM-DD
 r.get("/", requireAuth, async (req, res) => {
-  const username = req.user.username;
+  const userId = req.session.userId;
   const date = String(req.query.date || "").trim();
   if (!date) return res.status(400).json({ error: "date is required (YYYY-MM-DD)" });
 
-  const today = await prisma.sleepLog.findUnique({
-    where: { username_date: { username, date } },
-    select: { date: true, sleepStart: true, sleepEnd: true, fatigue: true }
-  });
-
-  const recent = await prisma.sleepLog.findMany({
-    where: { username },
-    orderBy: [{ date: "desc" }],
-    take: 14,
-    select: { date: true, sleepStart: true, sleepEnd: true, fatigue: true }
-  });
-
-  res.json({ today, recent });
+  const id = `${userId}_${date}`;
+  const snap = await col().doc(id).get();
+  if (!snap.exists) return res.json({ date, sleepStart: null, sleepEnd: null, fatigue: null });
+  const d = snap.data();
+  res.json({ date: d.date, sleepStart: d.sleepStart ?? null, sleepEnd: d.sleepEnd ?? null, fatigue: d.fatigue ?? null });
 });
 
-// POST /api/sleep  { date, sleepStart?, sleepEnd?, fatigue? }  (upsert)
+// POST /api/sleep { date, sleepStart?, sleepEnd?, fatigue? }
 r.post("/", requireAuth, async (req, res) => {
-  const username = req.user.username;
-  const { date, sleepStart, sleepEnd, fatigue } = req.body ?? {};
+  const userId = req.session.userId;
+  const { date, sleepStart = null, sleepEnd = null, fatigue = null } = req.body || {};
   if (!date) return res.status(400).json({ error: "date is required (YYYY-MM-DD)" });
 
-  // allow numbers or strings like "85" / "85%"
   let f = null;
-  if (fatigue !== undefined && fatigue !== null && String(fatigue).trim() !== "") {
-    const n = parseInt(String(fatigue).replace("%", "").trim(), 10);
+  if (fatigue !== null && fatigue !== undefined) {
+    const n = Number(fatigue);
     if (!Number.isNaN(n)) f = Math.max(0, Math.min(100, n));
   }
 
-  const row = await prisma.sleepLog.upsert({
-    where: { username_date: { username, date: String(date) } },
-    update: { sleepStart: sleepStart ?? null, sleepEnd: sleepEnd ?? null, fatigue: f },
-    create: { username, date: String(date), sleepStart: sleepStart ?? null, sleepEnd: sleepEnd ?? null, fatigue: f },
-    select: { date: true, sleepStart: true, sleepEnd: true, fatigue: true }
-  });
+  const id = `${userId}_${String(date)}`;
+  const data = { userId, date: String(date), sleepStart, sleepEnd, ...(f !== null ? { fatigue: f } : {}) };
+  await col().doc(id).set(data, { merge: true });
 
-  res.json(row);
+  const snap = await col().doc(id).get();
+  const d = snap.data();
+  res.status(201).json({ date: d.date, sleepStart: d.sleepStart ?? null, sleepEnd: d.sleepEnd ?? null, fatigue: d.fatigue ?? null });
 });
 
 export default r;

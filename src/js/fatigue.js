@@ -1,1 +1,61 @@
-async function whoAmI(){const r=await fetch("/api/auth/me",{credentials:"include"});if(!r.ok)return null;const{user}=await r.json().catch(()=>({user:null}));return user||null}function fmtTime(s){if(!s)return"";return s.includes("T")?s.replace("T"," ").slice(0,16):s}async function loadLists(d){document.getElementById("title-fatigue").textContent=`${d} 피로도`;const f=await fetch(`/api/fatigue?date=${d}`).then(r=>r.json());const ulF=document.getElementById("fatigue-list");ulF.innerHTML=f.items&&f.items.length?"":"<li>기록 없음</li>";(f.items||[]).forEach(it=>{const li=document.createElement("li");const t=new Date(it.recordedAt);li.textContent=`${t.toLocaleTimeString()} · ${it.type} · ${it.value}`;ulF.appendChild(li)});const s=await fetch(`/api/schedule?date=${d}`).then(r=>r.json());const ulS=document.getElementById("schedule-list");ulS.innerHTML=s.items&&s.items.length?"":"<li>일정 없음</li>";(s.items||[]).forEach(it=>{const li=document.createElement("li");li.textContent=`${fmtTime(it.start)} ~ ${fmtTime(it.end)} · ${it.title||""}`;ulS.appendChild(li)})}document.addEventListener("DOMContentLoaded",async()=>{const me=await whoAmI();if(!me){location.href="/login.html";return}const day=document.getElementById("day");const today=new Date().toISOString().slice(0,10);day.value=today;await loadLists(day.value);day.addEventListener("change",()=>loadLists(day.value));const form=document.getElementById("fatigue-form");form.addEventListener("submit",async e=>{e.preventDefault();const fd=new FormData(form);const payload={type:fd.get("type"),value:Number(fd.get("value")),note:fd.get("note")||null,date:day.value,recordedAt:new Date().toISOString()};const r=await fetch("/api/fatigue",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});const data=await r.json().catch(()=>({}));document.getElementById("save-msg").textContent=r.ok?"Saved.":data.error||"error";if(r.ok){form.reset();await loadLists(day.value)}});document.getElementById("logout").addEventListener("click",async()=>{await fetch("/api/auth/logout",{method:"POST"});location.href="/login.html"})});
+// fatigue.js (refresh fix: use only /api/fatigue?from&to)
+const $ = s => document.querySelector(s);
+const pad = n => String(n).padStart(2,'0');
+const toISODate = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+
+async function fetchRange(fromISO, toISO){
+  const r = await fetch(`/api/fatigue?from=${fromISO}&to=${toISO}`);
+  if(!r.ok){
+    // fallback to legacy sleep endpoint day-by-day
+    const out=[];
+    const start = new Date(fromISO+"T00:00:00");
+    const end = new Date(toISO+"T00:00:00");
+    for(let d=new Date(start); d<=end; d.setDate(d.getDate()+1)){
+      const iso = toISODate(d);
+      const rr= await fetch(`/api/sleep?date=${iso}`);
+      if(rr.ok){ const v=await rr.json(); if(v?.fatigue!=null){ out.push({ date: iso, value: v.fatigue }); } }
+    }
+    return out;
+  }
+  const data = await r.json();
+  const arr = Array.isArray(data) ? data : (data.items || []);
+  return arr;
+}
+
+function renderList(items){
+  const ul = document.getElementById('fgList'); ul.innerHTML='';
+  if(!items.length){ ul.innerHTML='<li>No entries</li>'; return; }
+  items.sort((a,b)=> (a.date||'').localeCompare(b.date||''));
+  for(const it of items){
+    const li=document.createElement('li'); li.textContent=`${it.date}: ${it.value}${it.type?` (${it.type})`:''}`;
+    ul.appendChild(li);
+  }
+}
+
+async function loadRecent(){
+  const end = new Date();
+  const start = new Date(); start.setDate(end.getDate()-6);
+  const list = await fetchRange(toISODate(start), toISODate(end));
+  renderList(list);
+}
+
+async function onAdd(){
+  const type=$('#fgType').value;
+  const value=Number($('#fgValue').value);
+  const hint=m=>{ const el=$('#fgHint'); if(el) el.textContent=m; };
+  if(Number.isNaN(value)) return hint('Enter 0–100');
+  try{
+    const r=await fetch('/api/fatigue',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,value})});
+    if(!r.ok) throw new Error(await r.text());
+    hint('Saved ✓'); await loadRecent();
+  }catch(e){ console.error(e); hint('Save failed: '+e.message); }
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  $('#fgAdd')?.addEventListener('click', onAdd);
+  $('#fgRefresh')?.addEventListener('click', loadRecent);
+  document.getElementById('logoutBtn')?.addEventListener('click', async ()=>{
+    try{ await fetch('/api/auth/logout',{method:'POST'});}finally{ location.href='/src/html/main.html'; }
+  });
+  loadRecent();
+});

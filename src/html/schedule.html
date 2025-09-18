@@ -1,60 +1,50 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>일정</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <link rel="stylesheet" href="/src/css/schedule.page.css"/>
+  <title>SleepHelper — Schedule</title>
+  <link rel="stylesheet" href="/src/css/schedule.css"/>
 </head>
 <body>
-  <header class="bar">
-    <h1>일정</h1>
-    <nav>
-      <a href="/src/html/fatigue.page.html">피로도</a>
-      <a href="/src/html/schedule.html">일정</a>
-      <a href="/src/html/infos.html">정보 요약</a>
+  <header class="topbar">
+    <nav class="nav">
+      <a href="/src/html/main.html">Main</a>
+      <a href="/src/html/fatigue.html">Fatigue</a>
+      <a href="/src/html/schedule.html" aria-current="page">Schedule</a>
+      <a href="/src/html/recommend.html">Recommend</a>
     </nav>
+    <button id="logoutBtn" class="logout-btn">Logout</button>
   </header>
 
-  <main class="page">
-    <!-- 왼쪽: 추가 -->
-    <section class="card">
-      <h2 class="section-title">일정 추가</h2>
-
-      <label>제목
-        <input id="scheduleTitleInput" type="text" placeholder="예: 수업/회의" required/>
-      </label>
-
-      <label>시작
-        <input id="scheduleStartInput" type="datetime-local"/>
-      </label>
-
-      <label>종료
-        <input id="scheduleEndInput" type="datetime-local"/>
-      </label>
-
-      <label>메모 (선택)
-        <textarea id="scheduleNoteInput" placeholder="간단 메모"></textarea>
-      </label>
-
-      <div class="row">
-        <button id="scheduleSaveBtn">저장</button>
-        <span id="scheduleMessage" class="small"></span>
+  <main class="two-pane">
+    <section class="pane">
+      <h2>Schedule</h2>
+      <div class="form-row"><label for="scheduleDate">Date (YYYY-MM-DD)</label><input id="scheduleDate" type="date"/></div>
+      <div class="form-row"><label for="scheduleStart">Start (HH:MM)</label><input id="scheduleStart" type="time"/></div>
+      <div class="form-row"><label for="scheduleEnd">End (HH:MM)</label><input id="scheduleEnd" type="time"/></div>
+      <div class="form-row"><label for="scheduleTitle">Title</label><input id="scheduleTitle" type="text" placeholder="Class / Study / Etc"/></div>
+      <div class="btn-row">
+        <button id="scheduleAdd">Add</button>
+        <button id="scheduleRefresh">Refresh</button>
       </div>
+      <p id="scheduleHint" class="hint"></p>
     </section>
 
-    <!-- 오른쪽: 보기 -->
-    <aside class="card">
-      <h2 class="section-title">일정 (날짜별)</h2>
-      <div class="row">
-        <label>날짜 <input id="scheduleViewDateInput" type="date"/></label>
-        <button id="scheduleRefreshBtn">새로고침</button>
-        <span id="scheduleStatus" class="small"></span>
+    <section class="pane">
+      <div class="view-header">
+        <h3 id="dayLabel"></h3>
+        <div>
+          <button id="prevDay">◀</button>
+          <button id="todayDay">Today</button>
+          <button id="nextDay">▶</button>
+        </div>
       </div>
-      <ul id="schedule-list" class="list"></ul>
-    </aside>
+      <div id="timetable" class="timetable"></div>
+      <div class="list-wrapper"><h4>Items</h4><ul id="scheduleList" class="item-list"></ul></div>
+    </section>
   </main>
 
-  <script src="/src/js/schedule.page.js"></script>
+  <script type="module" src="/src/js/schedule.js"></script>
 </body>
 </html>

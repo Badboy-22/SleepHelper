@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>SleepHelper — Fatigue</title>
+  <link rel="stylesheet" href="/src/css/fatigue.css"/>
+</head>
+<body>
+  <header class="topbar">
+    <nav class="nav">
+      <a href="/src/html/main.html">Main</a>
+      <a href="/src/html/fatigue.html" aria-current="page">Fatigue</a>
+      <a href="/src/html/schedule.html">Schedule</a>
+      <a href="/src/html/recommend.html">Recommend</a>
+    </nav>
+    <button id="logoutBtn" class="logout-btn">Logout</button>
+  </header>
+
+  <main class="two-pane">
+    <section class="pane">
+      <h2>Fatigue</h2>
+      <div class="form-row"><label for="fgType">Phase</label>
+        <select id="fgType">
+          <option value="BEFORE_SLEEP">Before sleep</option>
+          <option value="AFTER_SLEEP">After sleep</option>
+          <option value="DAYTIME">Daytime</option>
+        </select>
+      </div>
+      <div class="form-row"><label for="fgValue">Value (0–100)</label>
+        <input id="fgValue" type="number" min="0" max="100" step="1" value="50">
+      </div>
+      <button id="fgAdd">Add</button>
+      <p id="fgHint" class="hint"></p>
+    </section>
+
+    <section class="pane">
+      <div class="view-header"><h3>Recent fatigue</h3><button id="fgRefresh">Refresh</button></div>
+      <ul id="fgList" class="item-list"></ul>
+    </section>
+  </main>
+
+  <script type="module" src="/src/js/fatigue.js"></script>
+</body>
+</html>

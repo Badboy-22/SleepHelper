@@ -1,5 +1,5 @@
 body{font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
-/* Recommend page */
+/* Fatigue page */
 .topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:#f7f7f7;border-bottom:1px solid #e6e6e6}
 .nav{display:flex;gap:16px;align-items:center}
 .nav a{color:#333;text-decoration:none;padding:6px 2px;font-weight:500}
@@ -8,10 +8,12 @@ body{font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
 .logout-btn{border:1px solid #a0a0a0;background:#fff;color:#111;padding:6px 12px;border-radius:8px;font:inherit;cursor:pointer}
 .logout-btn:hover{box-shadow:0 1px 4px rgba(0,0,0,.12)}
 
-.container{width:90%;margin:12px auto}
-.form{border:1px solid #d9d9d9;border-radius:10px;background:#fff;padding:16px}
-.row{display:grid;grid-template-columns:220px 1fr;gap:12px;margin:10px 0;align-items:center}
-button{padding:8px 12px;border:1px solid #999;border-radius:6px;background:#fff;cursor:pointer}
+.two-pane{display:grid;grid-template-columns:30% 70%;gap:16px;width:90%;margin:12px auto}
+.pane{padding:16px;border:1px solid #cfcfcf;border-radius:10px;background:#fff}
+.form-row{display:grid;grid-template-columns:160px 1fr;align-items:center;gap:12px;margin:10px 0}
+button{padding:6px 10px;border:1px solid #999;border-radius:6px;background:#fff;cursor:pointer}
 button:hover{box-shadow:0 1px 3px rgba(0,0,0,.15)}
-.result{margin-top:16px;border:1px solid #d9d9d9;border-radius:10px;background:#fafafa;padding:16px;white-space:pre-wrap}
-@media(max-width:720px){.row{grid-template-columns:1fr}}
+.hint{color:#555;min-height:1.2em}
+.view-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.item-list{margin:6px 0 0;padding-left:16px}
+@media(max-width:720px){.two-pane{grid-template-columns:1fr;width:96%}.form-row{grid-template-columns:1fr}}

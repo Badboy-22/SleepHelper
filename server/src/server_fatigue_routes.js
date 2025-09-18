@@ -1,93 +1,58 @@
+// server/src/server_fatigue_routes.js
 import { Router } from "express";
-import { randomUUID } from "crypto";
+import { db } from "./firebase.js";
 
-export default function fatigueRoutes({ prisma }) {
-    const router = Router();
+export const fatigueRouter = Router();
+const col = () => db.collection("fatigueLogs");
 
-    router.post("/", async (req, res) => {
-        try {
-            // 세션 → userId, username
-            let userId = req.session?.userId || null;
-            let username = null;
-            if (!userId && req.session?.username) {
-                const u = await prisma.user.findUnique({ where: { username: String(req.session.username).toLowerCase().trim() } });
-                if (!u) return res.status(401).json({ error: "unauthorized" });
-                userId = u.id; username = u.username;
-            } else if (userId) {
-                const u = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, username: true } });
-                if (!u) return res.status(401).json({ error: "unauthorized" });
-                username = u.username;
-            } else {
-                return res.status(401).json({ error: "unauthorized" });
-            }
-
-            // payload
-            const { type, value, date, recordedAt, note } = req.body || {};
-            const raw = String(type || "").trim().toUpperCase();
-            const T =
-                raw === "BEFORE" ? "BEFORE_SLEEP" :
-                    raw === "AFTER" ? "AFTER_SLEEP" :
-                        raw === "DAY" ? "DAYTIME" :
-                            raw;
-            if (!["BEFORE_SLEEP", "AFTER_SLEEP", "DAYTIME"].includes(T))
-                return res.status(400).json({ error: "invalid type" });
-
-            const v = Number(value);
-            if (!Number.isFinite(v) || v < 0 || v > 100)
-                return res.status(400).json({ error: "value must be 0..100" });
-
-            let when = new Date();
-            if (recordedAt) {
-                const d = new Date(recordedAt);
-                if (!Number.isNaN(+d)) when = d;
-            } else if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-                when = new Date(`${date}T12:00:00Z`);
-            }
-
-            // SleepLog 준비(필요한 경우)
-            let sleepLogConnect = undefined;
-            if (date && (T === "BEFORE_SLEEP" || T === "AFTER_SLEEP")) {
-                try {
-                    await prisma.sleepLog.upsert({
-                        where: { username_date: { username, date } }, // 복합 고유키가 이렇게 정의돼 있다면
-                        create: { username, date },
-                        update: {},
-                    });
-                    sleepLogConnect = { connect: { username_date: { username, date } } };
-                } catch (e) {
-                    // 복합키 이름이 다르면 find/create로 보정
-                    if (String(e?.message || "").includes("Unknown arg `username_date`")) {
-                        const exist = await prisma.sleepLog.findFirst({ where: { username, date } });
-                        if (!exist) await prisma.sleepLog.create({ data: { username, date } });
-                        sleepLogConnect = { connect: { username, date } };
-                    } else {
-                        console.error("ensure SleepLog error:", e);
-                        return res.status(500).json({ error: "failed to ensure SleepLog for date" });
-                    }
-                }
-            }
-
-            // FatigueLog 생성 (중첩 관계 사용)
-            const item = await prisma.fatigueLog.create({
-                data: {
-                    id: randomUUID(),              // id 필요하면 유지
-                    user: { connect: { id: userId } }, // ← 필수
-                    type: T,
-                    value: Math.round(v),
-                    recordedAt: when,
-                    note: note ?? null,
-                    ...(sleepLogConnect ? { sleepLog: sleepLogConnect } : {}),
-                },
-            });
-
-            return res.status(201).json({ ok: true, item });
-        } catch (e) {
-            if (e?.code === "P2002") return res.status(409).json({ error: "duplicate fatigue entry" });
-            if (e?.code === "P2003") return res.status(400).json({ error: "foreign key violation" });
-            console.error("POST /api/fatigue error:", e);
-            return res.status(500).json({ error: "server error" });
-        }
-    });
-
-    return router;
+function userIdFrom(req) {
+  return req.user?.id || req.headers["x-debug-userid"] || "debugUser";
 }
+
+fatigueRouter.post("/", async (req, res) => {
+  try {
+    const userId = userIdFrom(req);
+    const { type = "DAYTIME", value } = req.body || {};
+    if (value === undefined || value === null) return res.status(400).json({ error: "value required" });
+    const now = new Date();
+    const date = now.toISOString().slice(0,10);
+    const payload = { userId, type, value: Number(value), date, createdAt: now.toISOString() };
+    const ref = await col().add(payload);
+    res.json({ id: ref.id, ...payload });
+  } catch (e) {
+    console.error("POST /api/fatigue error:", e);
+    res.status(500).send(String(e?.message || e));
+  }
+});
+
+/**
+ * GET /api/fatigue?from=YYYY-MM-DD&to=YYYY-MM-DD
+ * (loops by day to avoid composite indexes)
+ */
+fatigueRouter.get("/", async (req, res) => {
+  try {
+    const userId = userIdFrom(req);
+    const { from, to } = req.query;
+    if (!from || !to) return res.status(400).json({ error: "from and to are required (YYYY-MM-DD)" });
+
+    // iterate day-by-day and pick the latest entry for that date
+    const start = new Date(from + "T00:00:00");
+    const end = new Date(to + "T00:00:00");
+    const items = [];
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const iso = d.toISOString().slice(0,10);
+      const snap = await col().where("date","==",iso).get(); // single-field filter (no composite index)
+      const dayItems = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter(x => x.userId === userId);
+      if (dayItems.length) {
+        // choose latest for that date
+        dayItems.sort((a,b) => (b.createdAt||"").localeCompare(a.createdAt||""));
+        const { value, type } = dayItems[0];
+        items.push({ date: iso, value, type });
+      }
+    }
+    res.json({ items });
+  } catch (e) {
+    console.error("GET /api/fatigue error:", e);
+    res.status(500).send(String(e?.message || e));
+  }
+});

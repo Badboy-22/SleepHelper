@@ -1,86 +1,43 @@
 <!doctype html>
 <html lang="en">
-
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sleep Helper — Recommend</title>
-  <link rel="stylesheet" href="/src/css/recommend.css" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>SleepHelper — Recommend</title>
+  <link rel="stylesheet" href="/src/css/recommend.css"/>
 </head>
-
 <body>
   <header class="topbar">
     <nav class="nav">
       <a href="/src/html/main.html">Main</a>
-      <a href="/src/html/infos.html">Infos</a>
-      <a class="active" href="/src/html/recommend.html">Recommend</a>
+      <a href="/src/html/fatigue.html">Fatigue</a>
+      <a href="/src/html/schedule.html">Schedule</a>
+      <a href="/src/html/recommend.html" aria-current="page">Recommend</a>
     </nav>
+    <button id="logoutBtn" class="logout-btn">Logout</button>
   </header>
 
-  <main class="wrap">
-    <section class="card">
-      <h1>Tonight’s Window & Required Wake</h1>
-      <p class="muted">
-        Enter your available sleep window and the time you <b>must</b> wake up.
-        We’ll preview locally and (optionally) send it to Gemini for a tailored plan.
-      </p>
-
-      <form id="recForm">
-        <div class="grid">
-          <div class="field">
-            <label for="date">Date</label>
-            <input id="date" name="date" type="date" />
-          </div>
-
-          <div class="field">
-            <label for="canSleepFrom">You can sleep from</label>
-            <input id="canSleepFrom" name="canSleepFrom" type="time" />
-          </div>
-
-          <div class="field">
-            <label for="canSleepTo">…until</label>
-            <input id="canSleepTo" name="canSleepTo" type="time" />
-          </div>
-
-          <div class="field">
-            <label for="mustWake">You must wake by</label>
-            <input id="mustWake" name="mustWake" type="time" />
-          </div>
-
-          <div class="field">
-            <label for="targetHours">Target sleep (hours)</label>
-            <input id="targetHours" name="targetHours" type="number" step="0.5" min="4" max="10" value="7.5" />
-          </div>
-
-          <div class="field full">
-            <label for="notes">Notes / constraints</label>
-            <textarea id="notes" name="notes" placeholder="e.g., caffeine after 16:00, late workout, noise…"></textarea>
-          </div>
-        </div>
-
-        <div class="row">
-          <button id="btnPreview" class="secondary" type="button">Preview locally</button>
-          <button id="btnGemini" class="primary" type="submit">Ask Gemini</button>
-        </div>
-      </form>
-    </section>
-
-    <section class="card">
-      <h2>Summary</h2>
-      <div class="summary">
-        <div class="pill">Sleep window: <span id="windowText">—</span></div>
-        <div class="pill">Must wake: <span id="wakeText">—</span></div>
-        <div class="pill okay" id="fitText">—</div>
+  <div class="container">
+    <section class="form">
+      <h2>Ask Gemini</h2>
+      <div class="row">
+        <label>When can you sleep?</label>
+        <input id="sleepAt" type="time">
       </div>
+      <div class="row">
+        <label>When do you need to wake up?</label>
+        <input id="wakeTime" type="time">
+      </div>
+      <div class="row">
+        <label>Any special notes?</label>
+        <textarea id="notes" rows="3" placeholder="e.g., exam tomorrow, need 2h study before 9pm"></textarea>
+      </div>
+      <div class="row"><label></label><button id="askGemini">Ask Gemini</button></div>
     </section>
 
-    <section class="card">
-      <h2>Gemini Recommendation</h2>
-      <div id="result" class="result" aria-live="polite">No output yet.</div>
-    </section>
-  </main>
+    <section class="result" id="resultBox" aria-live="polite"></section>
+  </div>
 
   <script type="module" src="/src/js/recommend.js"></script>
 </body>
-
 </html>
