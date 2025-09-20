@@ -1,38 +1,40 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>SleepHelper — Recommend</title>
-  <link rel="stylesheet" href="/src/css/recommend.css"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>추천</title>
+  <link rel="stylesheet" href="/src/css/recommend.css" />
 </head>
+
 <body>
   <header class="topbar">
     <nav class="nav">
-      <a href="/src/html/main.html">Main</a>
-      <a href="/src/html/fatigue.html">Fatigue</a>
-      <a href="/src/html/schedule.html">Schedule</a>
-      <a href="/src/html/recommend.html" aria-current="page">Recommend</a>
+      <a href="/src/html/main.html">메인</a>
+      <a href="/src/html/fatigue.html">피로도</a>
+      <a href="/src/html/schedule.html">일정</a>
+      <a href="/src/html/recommend.html" aria-current="page">추천</a>
     </nav>
-    <button id="logoutBtn" class="logout-btn">Logout</button>
+    <button id="logoutBtn" class="logout-btn">로그아웃</button>
   </header>
 
   <div class="container">
     <section class="form">
-      <h2>Ask Gemini</h2>
+      <h2>추천받기</h2>
       <div class="row">
-        <label>When can you sleep?</label>
+        <label>언제 잠잘 수 있나요?</label>
         <input id="sleepAt" type="time">
       </div>
       <div class="row">
-        <label>When do you need to wake up?</label>
+        <label>언제 일어나야 하나요?</label>
         <input id="wakeTime" type="time">
       </div>
       <div class="row">
-        <label>Any special notes?</label>
-        <textarea id="notes" rows="3" placeholder="e.g., exam tomorrow, need 2h study before 9pm"></textarea>
+        <label>내일 특별한 게 있나요?</label>
+        <textarea id="notes" rows="3" placeholder="예: 내일 시험, 9시 전에 2시간 공부 필요"></textarea>
       </div>
-      <div class="row"><label></label><button id="askGemini">Ask Gemini</button></div>
+      <div class="row"><label></label><button id="askGemini">추천받기</button></div>
     </section>
 
     <section class="result" id="resultBox" aria-live="polite"></section>
@@ -40,4 +42,5 @@
 
   <script type="module" src="/src/js/recommend.js"></script>
 </body>
+
 </html>

@@ -1,45 +1,76 @@
 <!doctype html>
-<html lang="en">
+<html lang="ko">
+
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>SleepHelper — Fatigue</title>
-  <link rel="stylesheet" href="/src/css/fatigue.css"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>피로도</title>
+  <link rel="stylesheet" href="/src/css/fatigue.css">
 </head>
+
 <body>
+  <!-- Top bar (keep simple, matches existing pages) -->
   <header class="topbar">
     <nav class="nav">
       <a href="/src/html/main.html">Main</a>
-      <a href="/src/html/fatigue.html" aria-current="page">Fatigue</a>
+      <a class="active" href="/src/html/fatigue.html">Fatigue</a>
       <a href="/src/html/schedule.html">Schedule</a>
       <a href="/src/html/recommend.html">Recommend</a>
     </nav>
-    <button id="logoutBtn" class="logout-btn">Logout</button>
+    <button id="logoutBtn" class="btn">Logout</button>
   </header>
 
-  <main class="two-pane">
-    <section class="pane">
-      <h2>Fatigue</h2>
-      <div class="form-row"><label for="fgType">Phase</label>
-        <select id="fgType">
-          <option value="BEFORE_SLEEP">Before sleep</option>
-          <option value="AFTER_SLEEP">After sleep</option>
-          <option value="DAYTIME">Daytime</option>
-        </select>
-      </div>
-      <div class="form-row"><label for="fgValue">Value (0–100)</label>
-        <input id="fgValue" type="number" min="0" max="100" step="1" value="50">
-      </div>
-      <button id="fgAdd">Add</button>
-      <p id="fgHint" class="hint"></p>
-    </section>
+  <main class="page">
+    <div class="grid-2">
+      <!-- LEFT: 입력 (기존 입력 그대로 유지) -->
+      <section class="card">
+        <h2>Fatigue</h2>
 
-    <section class="pane">
-      <div class="view-header"><h3>Recent fatigue</h3><button id="fgRefresh">Refresh</button></div>
-      <ul id="fgList" class="item-list"></ul>
-    </section>
+        <div class="field">
+          <label for="fatigueType">Phase</label>
+          <select id="fatigueType">
+            <option value="AFTER_SLEEP">After sleep</option>
+            <option value="BEFORE_SLEEP">Before sleep</option>
+            <option value="DAYTIME">Daytime</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="fatigueValue">Value (0–100)</label>
+          <input id="fatigueValue" type="number" min="0" max="100" value="50">
+        </div>
+
+        <div class="actions">
+          <button id="fatigueAdd" class="btn">Add</button>
+          <span id="fatigueHint" class="hint"></span>
+        </div>
+      </section>
+
+      <!-- RIGHT: 최근 피로도 (보기만 카테고리로 구분) -->
+      <section class="card">
+        <div class="card-head">
+          <h2>Recent fatigue</h2>
+
+          <!-- 보기 필터 (전체 / 잠자기 전 / 일어난 후 / 생활할 때) -->
+          <div class="filter-row">
+            <div id="fatigueTabs" class="pill-tabs">
+              <button type="button" data-filter="ALL" class="active">전체</button>
+              <button type="button" data-filter="BEFORE_SLEEP">잠자기 전</button>
+              <button type="button" data-filter="AFTER_SLEEP">일어난 후</button>
+              <button type="button" data-filter="DAYTIME">생활할 때</button>
+            </div>
+            <button id="fatigueRefresh" class="btn">Refresh</button>
+          </div>
+        </div>
+
+        <ul id="fatigueList" class="fatigue-list">
+          <li>Loading…</li>
+        </ul>
+      </section>
+    </div>
   </main>
 
-  <script type="module" src="/src/js/fatigue.js"></script>
+  <script src="/src/js/fatigue.js"></script>
 </body>
+
 </html>

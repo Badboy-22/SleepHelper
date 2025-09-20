@@ -9,14 +9,33 @@ function userIdFrom(req) {
   return req.user?.id || req.headers["x-debug-userid"] || "debugUser";
 }
 
+// --- helpers ---
+const pad = (n) => String(n).padStart(2, "0");
+function fmtLocalDate(d) {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+function parseISODate(s) {
+  const [y, m, d] = (s || "").split("-").map(Number);
+  return new Date(y || 1970, (m || 1) - 1, d || 1);
+}
+
+// --- POST: create one fatigue entry ---
 fatigueRouter.post("/", async (req, res) => {
   try {
     const userId = userIdFrom(req);
     const { type = "DAYTIME", value } = req.body || {};
-    if (value === undefined || value === null) return res.status(400).json({ error: "value required" });
+    if (value === undefined || value === null) {
+      return res.status(400).json({ error: "value required" });
+    }
     const now = new Date();
-    const date = now.toISOString().slice(0,10);
-    const payload = { userId, type, value: Number(value), date, createdAt: now.toISOString() };
+    const date = fmtLocalDate(now); // local calendar date
+    const payload = {
+      userId,
+      type,
+      value: Number(value),
+      date,
+      createdAt: now.toISOString(),
+    };
     const ref = await col().add(payload);
     res.json({ id: ref.id, ...payload });
   } catch (e) {
@@ -27,32 +46,47 @@ fatigueRouter.post("/", async (req, res) => {
 
 /**
  * GET /api/fatigue?from=YYYY-MM-DD&to=YYYY-MM-DD
- * (loops by day to avoid composite indexes)
+ * Returns **all** entries for the user within the inclusive day range.
+ * No composite index required: we query by single-field 'date' equality for each day.
  */
 fatigueRouter.get("/", async (req, res) => {
   try {
     const userId = userIdFrom(req);
     const { from, to } = req.query;
-    if (!from || !to) return res.status(400).json({ error: "from and to are required (YYYY-MM-DD)" });
+    if (!from || !to) {
+      return res.status(400).json({ error: "from and to are required (YYYY-MM-DD)" });
+    }
 
-    // iterate day-by-day and pick the latest entry for that date
-    const start = new Date(from + "T00:00:00");
-    const end = new Date(to + "T00:00:00");
+    const start = parseISODate(from);
+    const end = parseISODate(to);
+    if (end < start) {
+      return res.status(400).json({ error: "`to` must be >= `from`" });
+    }
+
     const items = [];
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const iso = d.toISOString().slice(0,10);
-      const snap = await col().where("date","==",iso).get(); // single-field filter (no composite index)
-      const dayItems = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter(x => x.userId === userId);
-      if (dayItems.length) {
-        // choose latest for that date
-        dayItems.sort((a,b) => (b.createdAt||"").localeCompare(a.createdAt||""));
-        const { value, type } = dayItems[0];
-        items.push({ date: iso, value, type });
-      }
+      const iso = fmtLocalDate(d); // local date, avoids UTC drift
+      const snap = await col().where("date", "==", iso).get(); // single-field filter
+      snap.forEach((doc) => {
+        const data = doc.data();
+        if (data.userId === userId) {
+          items.push({ id: doc.id, ...data });
+        }
+      });
     }
+
+    // sort stable: date asc, createdAt asc
+    items.sort((a, b) => {
+      const aKey = `${a.date || ""}:${a.createdAt || ""}`;
+      const bKey = `${b.date || ""}:${b.createdAt || ""}`;
+      return aKey.localeCompare(bKey);
+    });
+
     res.json({ items });
   } catch (e) {
     console.error("GET /api/fatigue error:", e);
     res.status(500).send(String(e?.message || e));
   }
 });
+
+export default fatigueRouter;

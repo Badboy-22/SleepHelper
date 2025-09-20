@@ -3,33 +3,32 @@
 
 <head>
     <meta charset="utf-8" />
-    <title>Sign up</title>
+    <title>회원가입</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="/src/css/signup.css" />
 </head>
 
 <body>
     <main class="center">
-        <h1>Create account</h1>
+        <h1>계정 만들기</h1>
 
         <form id="signup-form" class="form" novalidate>
             <label>
-                <span>Username</span>
+                <span>아이디</span>
                 <input id="username" autocomplete="username" required />
             </label>
 
             <label>
-                <span>Password</span>
+                <span>비밀번호</span>
                 <input id="password" type="password" autocomplete="new-password" required />
             </label>
 
-            <button id="signup-btn" type="submit">Sign up</button>
+            <button id="signup-btn" type="submit">가입하기</button>
             <p id="error" class="error" role="alert" aria-live="polite"></p>
         </form>
 
         <p class="muted">
-            Already have an account?
-            <a href="/index.html">Log in</a>
+            <a href="/index.html">이미 계정이 있으신가요?</a>
         </p>
     </main>
 

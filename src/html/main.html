@@ -1,28 +1,40 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>SleepHelper — Main</title>
-  <link rel="stylesheet" href="/src/css/main.css"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>메인</title>
+  <link rel="stylesheet" href="/src/css/main.css" />
 </head>
+
 <body>
   <header class="topbar">
     <nav class="nav">
-      <a href="/src/html/main.html" aria-current="page">Main</a>
-      <a href="/src/html/fatigue.html">Fatigue</a>
-      <a href="/src/html/schedule.html">Schedule</a>
-      <a href="/src/html/recommend.html">Recommend</a>
+      <a href="/src/html/main.html" aria-current="page">메인</a>
+      <a href="/src/html/fatigue.html">피로도</a>
+      <a href="/src/html/schedule.html">일정</a>
+      <a href="/src/html/recommend.html">추천</a>
     </nav>
-    <button id="logoutBtn" class="logout-btn">Logout</button>
+    <button id="logoutBtn" class="logout-btn">로그아웃</button>
   </header>
   <div class="container">
     <div class="grid">
-      <a class="card" href="/src/html/fatigue.html"><h3>Log Fatigue</h3><p>Record 0–100 and phase.</p></a>
-      <a class="card" href="/src/html/schedule.html"><h3>Plan Schedule</h3><p>Add items and view the day calendar.</p></a>
-      <a class="card" href="/src/html/recommend.html"><h3>Ask Gemini</h3><p>Give your sleep time + wake time & notes; we include your logs.</p></a>
+      <a class="card" href="/src/html/fatigue.html">
+        <h3>피로도 기록</h3>
+        <p>언제, 얼마나 피곤한지 기록합니다.</p>
+      </a>
+      <a class="card" href="/src/html/schedule.html">
+        <h3>일정 계획</h3>
+        <p>항목을 추가하고 일간 일정을 봅니다.</p>
+      </a>
+      <a class="card" href="/src/html/recommend.html">
+        <h3>추천받기</h3>
+        <p>언제 일어나야 하는지 추천을 받습니다.</p>
+      </a>
     </div>
   </div>
   <script type="module" src="/src/js/main.js"></script>
 </body>
+
 </html>
