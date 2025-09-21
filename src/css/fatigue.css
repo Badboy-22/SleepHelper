@@ -1,151 +1,235 @@
+/* /src/css/fatigue.css — spacious layout */
+
+/* ===== Reset & Base ===== */
+html,
 body {
-  font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  margin: 0;
+  padding: 0;
 }
 
-/* Topbar */
+body {
+  font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color: #111;
+  background: #fafafa;
+}
+
+/* ===== Topbar ===== */
 .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
-  border-bottom: 1px solid #ddd;
+  padding: 8px 16px;
+  background: #f7f7f7;
+  border-bottom: 1px solid #e6e6e6;
+}
+
+.nav {
+  display: flex;
+  gap: 16px;
+  align-items: center;
 }
 
 .nav a {
-  margin-right: 14px;
+  color: #333;
   text-decoration: none;
-  color: #222;
+  padding: 6px 2px;
+  font-weight: 500;
+}
+
+.nav a:hover {
+  text-decoration: underline;
+  color: #111;
 }
 
 .nav a.active {
+  font-weight: 700;
   text-decoration: underline;
 }
 
 .btn {
-  padding: 6px 10px;
-  border: 1px solid #bbb;
+  border: 1px solid #9aa0a6;
   background: #fff;
+  color: #111;
+  padding: 6px 10px;
   border-radius: 8px;
   cursor: pointer;
 }
 
 .btn:hover {
-  background: #f6f6f6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .15);
 }
 
-/* Layout */
+/* ===== Page Layout ===== */
 .page {
-  max-width: 1100px;
-  margin: 20px auto;
-  padding: 0 12px;
+  max-width: 1400px;
+  margin: 14px auto;
+  padding: 0 10px;
 }
 
+/* Wider two columns (form + list), independent heights */
 .grid-2 {
   display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 16px;
+  grid-template-columns: 36% 64%;
+  /* was 32/68 → give list more width */
+  gap: 18px;
+  width: 96%;
+  /* was 90% */
+  margin: 14px auto;
+  align-items: start;
+  /* prevent equal-height stretch */
 }
 
 .card {
-  border: 1px solid #ddd;
-  border-radius: 10px;
-  padding: 16px;
   background: #fff;
+  border: 1px solid #dcdde3;
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .04);
+  height: auto;
+  min-height: 0;
+  align-self: start;
 }
 
-.card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
+h2 {
+  margin: 0 0 10px 0;
+  font-size: 19px;
 }
 
-/* Form */
+/* ===== Form fields (left) ===== */
 .field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 12px;
+  margin: 12px 0;
 }
 
-.field input,
+.field label {
+  display: block;
+  font-size: 13px;
+  color: #444;
+  margin-bottom: 6px;
+}
+
+.field input[type="number"],
+.field input[type="text"],
 .field select {
-  padding: 6px 8px;
-  border: 1px solid #ccc;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #cfd3da;
   border-radius: 8px;
+  background: #fff;
 }
 
 .actions {
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-top: 10px;
 }
 
 .hint {
-  color: #3a7;
-  font-size: 13px;
+  color: #666;
+  min-height: 1.2em;
+  font-size: 12px;
 }
 
-/* Filter tabs + list */
-.filter-row {
+/* ===== Right header (tabs + refresh) ===== */
+.card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
   gap: 10px;
 }
 
+/* Bigger pill tabs */
 .pill-tabs {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
 .pill-tabs button {
-  padding: 6px 10px;
-  border: 1px solid #ddd;
+  border: 1px solid #d6d6d6;
+  background: #fafafa;
+  color: #222;
+  padding: 8px 14px;
   border-radius: 999px;
-  background: #fff;
   cursor: pointer;
+  font-size: 14px;
 }
 
 .pill-tabs button.active {
-  background: #eef4ff;
-  border-color: #9bbcff;
+  background: #111;
+  color: #fff;
+  border-color: #111;
 }
 
+.pill-tabs button:hover {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .1);
+}
+
+/* ===== Recent list (grouped by date) ===== */
 .fatigue-list {
-  margin: 10px 0 0 0;
-  padding-left: 18px;
-}
-
-/* Responsive */
-@media (max-width: 900px) {
-  .grid-2 {
-    grid-template-columns: 1fr;
-  }
-}
-
-.date-divider {
   list-style: none;
-  margin: 10px 0 6px;
-  padding: 4px 8px;
-  background: #f7f9ff;
-  border: 1px solid #e3eaff;
-  border-radius: 8px;
-  font-weight: 600;
-  color: #335;
+  margin: 0;
+  padding: 0;
 }
 
+.fatigue-list li {
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 15px;
+}
+
+.fatigue-list li+li {
+  margin-top: 6px;
+}
+
+/* 날짜 구분선 */
+.date-divider {
+  background: #ecf3ff;
+  border: 1px solid #d8e5ff;
+  color: #1f58ff;
+  font-weight: 700;
+  padding: 8px 12px !important;
+  margin-top: 12px;
+}
+
+/* 항목 라인 */
 .fatigue-list .time {
-  color: #667;
+  color: #666;
+  margin-right: 8px;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
 }
 
 .fatigue-list .type {
-  color: #445;
+  color: #111;
+  font-weight: 700;
+  margin-right: 8px;
 }
 
 .fatigue-list .value {
-  color: #223;
-  font-weight: 600;
+  color: #333;
+}
+
+/* Remove height cap on the right pane so it can grow */
+.view-pane {
+  max-height: none;
+  overflow: visible;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 1000px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+    width: 96%;
+  }
 }

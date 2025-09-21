@@ -12,36 +12,35 @@
   <!-- Top bar (keep simple, matches existing pages) -->
   <header class="topbar">
     <nav class="nav">
-      <a href="/src/html/main.html">Main</a>
-      <a class="active" href="/src/html/fatigue.html">Fatigue</a>
-      <a href="/src/html/schedule.html">Schedule</a>
-      <a href="/src/html/recommend.html">Recommend</a>
+      <a href="/src/html/main.html">메인</a>
+      <a class="active" href="/src/html/fatigue.html">피로도</a>
+      <a href="/src/html/schedule.html">일정</a>
+      <a href="/src/html/recommend.html">추천</a>
     </nav>
-    <button id="logoutBtn" class="btn">Logout</button>
+    <button id="logoutBtn" class="btn">로그아웃</button>
   </header>
 
   <main class="page">
     <div class="grid-2">
-      <!-- LEFT: 입력 (기존 입력 그대로 유지) -->
       <section class="card">
-        <h2>Fatigue</h2>
+        <h2>피로도</h2>
 
         <div class="field">
-          <label for="fatigueType">Phase</label>
+          <label for="fatigueType">시간대</label>
           <select id="fatigueType">
-            <option value="AFTER_SLEEP">After sleep</option>
-            <option value="BEFORE_SLEEP">Before sleep</option>
-            <option value="DAYTIME">Daytime</option>
+            <option value="AFTER_SLEEP">일어난 후</option>
+            <option value="BEFORE_SLEEP">자기 전</option>
+            <option value="DAYTIME">생활할 때</option>
           </select>
         </div>
 
         <div class="field">
-          <label for="fatigueValue">Value (0–100)</label>
+          <label for="fatigueValue">피로도 (0–100)</label>
           <input id="fatigueValue" type="number" min="0" max="100" value="50">
         </div>
 
         <div class="actions">
-          <button id="fatigueAdd" class="btn">Add</button>
+          <button id="fatigueAdd" class="btn">저장</button>
           <span id="fatigueHint" class="hint"></span>
         </div>
       </section>
@@ -49,9 +48,7 @@
       <!-- RIGHT: 최근 피로도 (보기만 카테고리로 구분) -->
       <section class="card">
         <div class="card-head">
-          <h2>Recent fatigue</h2>
-
-          <!-- 보기 필터 (전체 / 잠자기 전 / 일어난 후 / 생활할 때) -->
+          <h2>최근 피로도</h2>
           <div class="filter-row">
             <div id="fatigueTabs" class="pill-tabs">
               <button type="button" data-filter="ALL" class="active">전체</button>
@@ -64,7 +61,7 @@
         </div>
 
         <ul id="fatigueList" class="fatigue-list">
-          <li>Loading…</li>
+          <li>로딩 중...</li>
         </ul>
       </section>
     </div>
