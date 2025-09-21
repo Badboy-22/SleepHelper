@@ -1,1 +1,1 @@
-document.getElementById('logoutBtn')?.addEventListener('click',async()=>{try{await fetch('/api/auth/logout',{method:'POST'})}finally{location.href='/src/html/main.html'}});
+document.getElementById('logoutBtn')?.addEventListener('click', async () => { try { await fetch('/api/auth/logout', { method: 'POST' }) } finally { location.href = '/src/html/main.html' } });
