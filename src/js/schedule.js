@@ -224,3 +224,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   await refresh($('#scheduleDate')?.value || fmtDate(new Date()));
 });
+
+document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+  try {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+  } finally {
+    location.href = '/index.html';
+  }
+});

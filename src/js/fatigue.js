@@ -166,6 +166,10 @@ function bindInput() {
       alert("타입과 값을 입력하세요.");
       return;
     }
+    if (value < 0 || value > 100) {
+      alert("값은 0에서 100 사이여야 합니다.");
+      return;
+    }
     try {
       await apiAddFatigue({ type, value });
       if (hint) { hint.textContent = "Saved ✓"; setTimeout(() => (hint.textContent = ""), 1500); }
@@ -182,4 +186,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("#fatigueRefresh")?.addEventListener("click", refreshFatigue);
   await refreshFatigue();
   applyActiveTab();
+});
+
+document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+  try {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+  } finally {
+    location.href = '/index.html';
+  }
 });

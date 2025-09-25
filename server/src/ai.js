@@ -161,6 +161,7 @@ async function askGemini(payload) {
 - 준비 → 수면 → 기상 단계별 플랜과 마지막 요점 요약.
 - 일정 충돌 시 현실적인 대안 제시.
 - 불필요한 사족/면책/“데이터 접근 불가” 같은 문구 금지.
+- 잘 수 있는 시간보다 이른 시간에 수면 추천 금지.
 
 <사용자 입력>
 ${JSON.stringify(compact.userInputs, null, 2)}

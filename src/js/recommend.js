@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const date = toISO(new Date());
 
     const resultBox = document.getElementById('resultBox');
-    resultBox.textContent = 'Thinking…';
+    resultBox.textContent = '로딩중...';
 
     const [schedToday, schedTomorrow, fatigue] = await Promise.all([
       getDaySchedule(date),
@@ -58,6 +58,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('logoutBtn')?.addEventListener('click', async () => {
-    try { await fetch('/api/auth/logout', { method: 'POST' }); } finally { location.href = '/src/html/main.html'; }
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+    } finally {
+      location.href = '/index.html';
+    }
   });
 });
