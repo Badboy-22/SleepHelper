@@ -1,67 +1,108 @@
-const $ = s => document.querySelector(s);
-const toISO = d => d.toISOString().slice(0, 10);
+
+// recommend.js (client) — sends top-level fields expected by /api/gemini/recommend
+const $ = (s) => document.querySelector(s);
+const toISO = (d) => d.toISOString().slice(0, 10);
 
 async function getDaySchedule(date) {
-  const r = await fetch(`/api/schedule?date=${encodeURIComponent(date)}`);
-  if (!r.ok) return [];
-  const { items = [] } = await r.json();
-  return items;
+  try {
+    const r = await fetch(`/api/schedule?date=${encodeURIComponent(date)}`, { credentials: 'same-origin' });
+    if (!r.ok) return [];
+    const { items = [] } = await r.json();
+    return Array.isArray(items) ? items : [];
+  } catch {
+    return [];
+  }
 }
+
 async function getRecentFatigue(days = 7) {
-  const end = new Date(); const out = [];
+  const end = new Date();
+  const out = [];
   for (let i = 0; i < days; i++) {
-    const d = new Date(end); d.setDate(end.getDate() - i);
+    const d = new Date(end);
+    d.setDate(end.getDate() - i);
     const iso = toISO(d);
-    const r = await fetch(`/api/sleep?date=${iso}`);
-    if (r.ok) { const data = await r.json(); if (data?.fatigue !== null && data?.fatigue !== undefined) { out.push({ date: iso, value: data.fatigue }); } }
+    try {
+      const r = await fetch(`/api/sleep?date=${iso}`, { credentials: 'same-origin' });
+      if (r.ok) {
+        const data = await r.json();
+        if (data && data.fatigue !== undefined && data.fatigue !== null) {
+          out.push({ date: iso, value: data.fatigue });
+        }
+      }
+    } catch {}
   }
   return out;
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('askGemini')?.addEventListener('click', async () => {
-    const sleepAt = document.getElementById('sleepAt').value || null;
-    const wake = document.getElementById('wakeTime').value || null;
-    const notes = document.getElementById('notes').value || '';
-    const date = toISO(new Date());
+async function onAskGemini(e) {
+  e.preventDefault();
+  const sleepWindowStart = $('#sleepAt')?.value?.trim() || '';
+  const wakeTime         = $('#wakeTime')?.value?.trim() || '';
+  const notes            = $('#notes')?.value?.trim() || '';
+  const date             = toISO(new Date()); // 오늘(KST는 서버에서 보정)
 
-    const resultBox = document.getElementById('resultBox');
-    resultBox.textContent = '로딩중...';
+  const HHMM = /^\d{2}:\d{2}$/;
+  if (!HHMM.test(sleepWindowStart) || !HHMM.test(wakeTime)) {
+    alert('시간은 HH:MM 형식(예: 22:30)으로 입력해 주세요.');
+    return;
+  }
 
+  const resultBox = $('#resultBox');
+  if (resultBox) resultBox.textContent = '요청 중…';
+
+  // 참고 데이터(옵션)
+  let clientSchedule = null;
+  let clientFatigue = null;
+  try {
     const [schedToday, schedTomorrow, fatigue] = await Promise.all([
       getDaySchedule(date),
-      getDaySchedule(toISO(new Date(new Date().getTime() + 86400000))),
-      getRecentFatigue(7)
+      getDaySchedule(toISO(new Date(Date.now() + 86400000))),
+      getRecentFatigue(7),
     ]);
+    clientSchedule = { [date]: schedToday, nextDay: schedTomorrow };
+    clientFatigue = fatigue;
+  } catch {}
 
-    const payload = {
-      userInputs: { date, sleepAt, wakeTime: wake, notes },
-      schedule: { [date]: schedToday, nextDay: schedTomorrow },
-      fatigue
-    };
-
-    try {
-      const r = await fetch('/api/gemini/recommend', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (r.ok) {
-        const data = await r.json();
-        const text = data?.text || data?.result || data?.content || JSON.stringify(data, null, 2);
-        resultBox.textContent = text;
-      } else {
-        throw new Error('endpoint not found');
-      }
-    } catch (e) {
-      resultBox.textContent = 'Could not reach /api/gemini/recommend. Please add the route.\n\nPayload preview:\n' + JSON.stringify(payload, null, 2);
+  try {
+    const r = await fetch('/api/gemini/recommend', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        // 서버가 요구하는 최상위 필드
+        sleepWindowStart,
+        wakeTime,
+        date,
+        notes,
+        // 참조용(옵션)
+        schedule: clientSchedule,
+        fatigue: clientFatigue,
+      }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const msg = data?.error || data?.message || '요청 실패';
+      throw new Error(`${r.status} ${msg}`);
     }
-  });
+    const text = data?.text ?? data?.result ?? data?.content ?? JSON.stringify(data, null, 2);
+    if (resultBox) resultBox.textContent = text;
+  } catch (err) {
+    if (resultBox) resultBox.textContent = `요청 실패: ${err.message}`;
+    console.error(err);
+  }
+}
 
-  document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+function hookLogout() {
+  $('#logoutBtn')?.addEventListener('click', async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
     } finally {
       location.href = '/index.html';
     }
   });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  $('#askGemini')?.addEventListener('click', onAskGemini);
+  hookLogout();
 });
