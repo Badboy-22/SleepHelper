@@ -20,7 +20,7 @@ export const aiRouter = Router();
 
 // --- Env (Gemini optional; only for polishing text) ---
 const GEMINI_API_KEY = process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY || "";
-const GEMINI_MODEL   = process.env.GEMINI_MODEL || "models/gemini-2.5-flash";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "models/gemini-2.5-flash";
 const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
 
 // --- KST helpers ---
@@ -41,7 +41,7 @@ const partsKST = (d) =>
 function ymdKST(d) { const p = partsKST(d); return `${p.year}-${p.month}-${p.day}`; }
 function hmKST(dOrIso) { const d = typeof dOrIso === "string" ? new Date(dOrIso) : dOrIso; const p = partsKST(d); return `${p.hour}:${p.minute}`; }
 function fullKST(d) { const p = partsKST(d); return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`; }
-function makeKST(dateStr, hh, mm) { const base = new Date(`${dateStr}T00:00:00+09:00`); base.setUTCMinutes(base.getUTCMinutes() + (hh*60 + mm)); return base; }
+function makeKST(dateStr, hh, mm) { const base = new Date(`${dateStr}T00:00:00+09:00`); base.setUTCMinutes(base.getUTCMinutes() + (hh * 60 + mm)); return base; }
 
 function parseHHMM(s) {
   if (typeof s !== "string") return null;
@@ -55,43 +55,43 @@ function parseHHMM(s) {
     return [hh, mm];
   }
   m = t.match(/^(\d{2}):(\d{2})$/);
-  if (m) return [parseInt(m[1],10), parseInt(m[2],10)];
+  if (m) return [parseInt(m[1], 10), parseInt(m[2], 10)];
   return null;
 }
 
 // --- Util ---
 function uid(req) { return req.session?.userId || req.user?.id || req.user?.uid || req.headers["x-user-id"] || null; }
-function wantsJson(req) { const q=(req.query?.format||"").toString().toLowerCase(); if(q==="json")return true; const a=(req.get("accept")||"").toLowerCase(); return a.includes("application/json"); }
+function wantsJson(req) { const q = (req.query?.format || "").toString().toLowerCase(); if (q === "json") return true; const a = (req.get("accept") || "").toLowerCase(); return a.includes("application/json"); }
 function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
 
 // --- Firestore IO ---
 async function readSchedules(userId, dateStr) {
   const snap = await db.collection("schedules")
-    .where("userId","==",userId)
-    .where("date","==",dateStr)
+    .where("userId", "==", userId)
+    .where("date", "==", dateStr)
     .get();
-  const items = snap.docs.map(d=>d.data());
-  items.sort((a,b)=> (a.startAt < b.startAt ? -1 : 1));
+  const items = snap.docs.map(d => d.data());
+  items.sort((a, b) => (a.startAt < b.startAt ? -1 : 1));
   return items;
 }
 async function readFatigueSummary7d(userId, centerDateStr) {
   const rows = [];
   const base = new Date(`${centerDateStr}T00:00:00+09:00`);
-  for (let i=6;i>=0;i--) {
-    const d = new Date(base); d.setUTCDate(d.getUTCDate()-i);
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(base); d.setUTCDate(d.getUTCDate() - i);
     const dstr = ymdKST(d);
     const snap = await db.collection("fatigueLogs")
-      .where("userId","==",userId).where("date","==",dstr).get();
-    snap.forEach(doc=>rows.push(doc.data()));
+      .where("userId", "==", userId).where("date", "==", dstr).get();
+    snap.forEach(doc => rows.push(doc.data()));
   }
-  const vals = rows.map(r=> Number(r.value)||0);
-  const avg = vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) : null;
+  const vals = rows.map(r => Number(r.value) || 0);
+  const avg = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
   return { count: rows.length, avg };
 }
 
 // --- Smart duration search ---
 // durations: every 30m from 3.5h..9h (210..540)
-const DURATIONS = Array.from({length:12}, (_,i)=>210 + i*30); // 210,240,...,540
+const DURATIONS = Array.from({ length: 12 }, (_, i) => 210 + i * 30); // 210,240,...,540
 
 function chooseDuration(fatigueAvg) {
   // baseline 7.5h (450). Adjust by fatigue: high(+60), low(-60)
@@ -109,33 +109,33 @@ function chooseDuration(fatigueAvg) {
   return best;
 }
 
-function fitByWake({minBed, wakeAt, solMin, fatigueAvg}) {
-  const avail = Math.max(0, Math.round((wakeAt - minBed)/60000) - solMin);
+function fitByWake({ minBed, wakeAt, solMin, fatigueAvg }) {
+  const avail = Math.max(0, Math.round((wakeAt - minBed) / 60000) - solMin);
   const pref = chooseDuration(fatigueAvg);
   // Find best <= avail (prefer near pref, prefer longer)
   let cand = null, bestScore = -1e9;
   for (const d of DURATIONS) {
     if (d > avail) continue;
-    const score = 100 - Math.abs(d - pref)/5 + d/60;
+    const score = 100 - Math.abs(d - pref) / 5 + d / 60;
     if (score > bestScore) { bestScore = score; cand = d; }
   }
   if (!cand) return null;
-  const sleepStart = new Date(wakeAt.getTime() - (cand+solMin)*60000);
+  const sleepStart = new Date(wakeAt.getTime() - (cand + solMin) * 60000);
   return { sleepStart, wakeAt, sleepMin: cand };
 }
 
-function fitByBedStart({bedStart, nextLimit, solMin, fatigueAvg}) {
-  const avail = Math.max(0, Math.round((nextLimit - bedStart)/60000) - solMin);
+function fitByBedStart({ bedStart, nextLimit, solMin, fatigueAvg }) {
+  const avail = Math.max(0, Math.round((nextLimit - bedStart) / 60000) - solMin);
   if (avail <= 0) return null;
   const pref = chooseDuration(fatigueAvg);
   let cand = null, bestScore = -1e9;
   for (const d of DURATIONS) {
     if (d > avail) continue;
-    const score = 100 - Math.abs(d - pref)/5 + d/90;
+    const score = 100 - Math.abs(d - pref) / 5 + d / 90;
     if (score > bestScore) { bestScore = score; cand = d; }
   }
   if (!cand) return null;
-  const wakeAt = new Date(bedStart.getTime() + (cand+solMin)*60000);
+  const wakeAt = new Date(bedStart.getTime() + (cand + solMin) * 60000);
   return { sleepStart: bedStart, wakeAt, sleepMin: cand };
 }
 
@@ -150,7 +150,7 @@ async function polishWithGemini(koreanPlain) {
     koreanPlain
   ].join("\n");
   try {
-    const res = await model.generateContent({ contents:[{role:"user",parts:[{text:prompt}]}] });
+    const res = await model.generateContent({ contents: [{ role: "user", parts: [{ text: prompt }] }] });
     const text = res?.response?.text?.()?.trim();
     return text || null;
   } catch { return null; }
@@ -162,7 +162,7 @@ async function handleRecommend(req, res) {
     const userId = uid(req);
     if (!userId) {
       const msg = "인증이 필요합니다. 먼저 로그인하세요.";
-      return wantsJson(req) ? res.status(401).json({ ok:false, error:msg }) : res.status(401).type("text/plain; charset=utf-8").send(msg);
+      return wantsJson(req) ? res.status(401).json({ ok: false, error: msg }) : res.status(401).type("text/plain; charset=utf-8").send(msg);
     }
 
     const body = req.body || {};
@@ -170,11 +170,11 @@ async function handleRecommend(req, res) {
 
     // Inputs: allow either
     const sws = body.sleepWindowStart;
-    const wt  = body.wakeTime || body.wakeAt;
+    const wt = body.wakeTime || body.wakeAt;
 
     // Sleep Onset Latency (minutes to fall asleep)
     let solMin = Number.isFinite(body.solMin) ? Math.round(body.solMin) : 20;
-    solMin = clamp(solMin, 15, 30);
+    solMin = clamp(solMin, 1, 60);
 
     // Data
     const schedules = await readSchedules(userId, dateStr);
@@ -184,7 +184,7 @@ async function handleRecommend(req, res) {
     // minBed = max(22:00 KST, last schedule end)
     let minBed = makeKST(dateStr, 22, 0);
     if (schedules.length) {
-      const latestEnd = new Date(schedules.reduce((m,b)=> (b.endAt>m?b.endAt:m), schedules[0].endAt));
+      const latestEnd = new Date(schedules.reduce((m, b) => (b.endAt > m ? b.endAt : m), schedules[0].endAt));
       if (latestEnd > minBed) minBed = latestEnd;
     }
 
@@ -207,7 +207,7 @@ async function handleRecommend(req, res) {
       const t = parseHHMM(wt);
       if (t) {
         wakeAt = makeKST(dateStr, t[0], t[1]);
-        if (wakeAt <= bedStart) wakeAt = new Date(wakeAt.getTime() + 24*60*60*1000);
+        if (wakeAt <= bedStart) wakeAt = new Date(wakeAt.getTime() + 24 * 60 * 60 * 1000);
       } else {
         const d = new Date(wt);
         if (!isNaN(d)) wakeAt = d;
@@ -222,10 +222,10 @@ async function handleRecommend(req, res) {
         const s = new Date(b.startAt);
         if (s > bedStart && (!nextStart || s < nextStart)) nextStart = s;
       }
-      if (nextStart) nextLimit = new Date(nextStart.getTime() - 30*60000);
+      if (nextStart) nextLimit = new Date(nextStart.getTime() - 30 * 60000);
       else {
         nextLimit = makeKST(dateStr, 9, 0);
-        if (nextLimit <= bedStart) nextLimit = new Date(nextLimit.getTime() + 24*60*60*1000);
+        if (nextLimit <= bedStart) nextLimit = new Date(nextLimit.getTime() + 24 * 60 * 60 * 1000);
       }
     }
 
@@ -239,14 +239,14 @@ async function handleRecommend(req, res) {
 
     if (!plan) {
       const msg = "현재 입력과 일정으로는 충분한 수면 시간을 확보하기 어렵습니다. 일정 조정이나 낮잠(20–30분)을 고려해 주세요.";
-      return wantsJson(req) ? res.status(200).json({ ok:true, source:"smart-fallback", answer:msg }) :
-                              res.status(200).type("text/plain; charset=utf-8").send(msg);
+      return wantsJson(req) ? res.status(200).json({ ok: true, source: "smart-fallback", answer: msg }) :
+        res.status(200).type("text/plain; charset=utf-8").send(msg);
     }
 
     const minutes = plan.sleepMin;
-    const h = Math.floor(minutes/60), m = minutes%60;
+    const h = Math.floor(minutes / 60), m = minutes % 60;
     const textRaw = [
-      `권장 수면: ${hmKST(plan.sleepStart)} 취침, ${hmKST(plan.wakeAt)} 기상 (총 ${h}시간${m?` ${m}분`:""} 수면, 잠들기 ${solMin}분 포함)`,
+      `권장 수면: ${hmKST(plan.sleepStart)} 취침, ${hmKST(plan.wakeAt)} 기상 (총 ${h}시간${m ? ` ${m}분` : ""} 수면, 잠들기 ${solMin}분 포함)`,
       `기상 이후 첫 일정까지 준비 여유를 확인하고, 취침 ${solMin}분 전부터 조도를 낮추고 화면 사용을 줄이세요.`
     ].join("\n");
 

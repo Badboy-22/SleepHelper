@@ -50,22 +50,22 @@ body {
   color: #111;
 }
 
-.nav a.active {
+.nav a[aria-current="page"] {
   font-weight: 700;
   text-decoration: underline;
 }
 
-.btn {
-  border: 1px solid #9aa0a6;
+.logout-btn {
+  border: 1px solid #a0a0a0;
   background: #fff;
   color: #111;
-  padding: 6px 10px;
+  padding: 6px 12px;
   border-radius: 8px;
   cursor: pointer;
 }
 
-.btn:hover {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, .15);
+.logout-btn:hover {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .12);
 }
 
 /* ===== Page Layout ===== */

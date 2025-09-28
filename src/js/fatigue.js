@@ -233,3 +233,81 @@ function redirectToLogin() {
   alert("로그인이 필요합니다.");
   location.replace("/index.html");
 }
+
+// === [AI additive] per-part upsert & grid ===
+(function () {
+  const PARTS = ['morning', 'afternoon', 'evening', 'night'];
+  function labelForPart(k) { return { morning: "아침", afternoon: "오후", evening: "저녁", night: "밤" }[k] || k; }
+  function todayKST() {
+    const now = new Date();
+    const y = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric' }).format(now);
+    const m = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit' }).format(now);
+    const d = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', day: '2-digit' }).format(now);
+    return `${y}-${m}-${d}`;
+  }
+  function setDateToday() { const el = document.getElementById('aiFDate'); if (!el) return; el.value = todayKST(); }
+
+  async function loadRange(days) {
+    const tbody = document.querySelector('#aiFatigueTable tbody'); if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="6">불러오는 중...</td></tr>';
+    try {
+      const res = await fetch(`/api/fatigue/logs?days=${days}`, { credentials: 'include', headers: { 'Accept': 'application/json' }, cache: 'no-store' });
+      let rows = []; if (res.ok) { const j = await res.json().catch(() => null); rows = Array.isArray(j?.items) ? j.items : (Array.isArray(j) ? j : []); }
+      const byDate = new Map();
+      rows.forEach(r => { const date = r.date; if (!date) return; if (!byDate.has(date)) byDate.set(date, {}); const p = (r.part || '').toLowerCase() || 'day'; byDate.get(date)[p] = r; });
+      const dates = [...byDate.keys()].sort((a, b) => a < b ? 1 : -1);
+      tbody.innerHTML = '';
+      let sum = 0, cnt = 0;
+      dates.forEach(date => {
+        const map = byDate.get(date) || {};
+        const tds = PARTS.map(p => {
+          const r = map[p]; if (!r) return '<td class="ai-empty">—</td>';
+          sum += Number(r.value) || 0; cnt += 1; return `<td>${r.value}</td>`;
+        });
+        const vals = PARTS.map(p => map[p]?.value).filter(v => v != null).map(Number);
+        const avg = vals.length ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10 : '-';
+        tbody.insertAdjacentHTML('beforeend', `<tr><td>${date}</td>${tds.join('')}<td>${avg}</td></tr>`);
+      });
+      document.getElementById('aiAvgBadge').textContent = `평균 ${cnt ? Math.round((sum / cnt) * 10) / 10 : '-'}`;
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="6">불러오기 실패</td></tr>`;
+      document.getElementById('aiAvgBadge').textContent = '평균 -';
+    }
+  }
+
+  async function saveFatigue() {
+    const date = document.getElementById('aiFDate')?.value;
+    const part = document.getElementById('aiFPart')?.value;
+    const value = parseInt(document.getElementById('aiFatigue')?.value || '5', 10);
+    const note = document.getElementById('aiSaveNote'); if (!date || !part) return;
+    note.textContent = '저장 중...';
+    let existingId = null;
+    try {
+      const res = await fetch('/api/fatigue/logs?days=1', { credentials: 'include', headers: { 'Accept': 'application/json' }, cache: 'no-store' });
+      if (res.ok) {
+        const j = await res.json().catch(() => null); const rows = Array.isArray(j?.items) ? j.items : (Array.isArray(j) ? j : []);
+        const found = rows.find(r => r.date === date && (r.part || '').toLowerCase() === part); if (found && (found.id || found._id)) existingId = found.id || found._id;
+      }
+    } catch { }
+    let ok = false;
+    if (existingId) {
+      try { const r = await fetch(`/api/fatigue/log/${encodeURIComponent(existingId)}`, { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ value }) }); ok = r.ok; } catch { }
+    }
+    if (!ok) {
+      const r = await fetch('/api/fatigue/log', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ date, part, value }) });
+      ok = r.ok;
+    }
+    note.textContent = ok ? '저장 완료' : '저장 실패';
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('aiFatigueTable')) {
+      setDateToday();
+      const slider = document.getElementById('aiFatigue'), out = document.getElementById('aiFatigueVal');
+      if (slider && out) { out.textContent = slider.value; slider.addEventListener('input', () => out.textContent = slider.value); }
+      document.getElementById('aiSaveFatigue')?.addEventListener('click', saveFatigue);
+      document.getElementById('aiRange')?.addEventListener('change', e => loadRange(parseInt(e.target.value, 10)));
+      loadRange(7);
+    }
+  });
+})();

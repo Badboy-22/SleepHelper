@@ -42,7 +42,7 @@ LoginButton.addEventListener("click", async (e) => {
         await LoginRequest(username, password);
         const user = await whoAmI();
         if (!user) throw new Error("세션 확인 실패");
-        window.location.assign(new URL("/src/html/main.html", window.location.href));
+        window.location.assign(new URL("/src/html/recommend.html", window.location.href));
     } catch (err) {
         error.textContent = err.message || "로그인 실패";
     }
