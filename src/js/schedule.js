@@ -232,3 +232,46 @@ document.getElementById('logoutBtn')?.addEventListener('click', async () => {
     location.href = '/index.html';
   }
 });
+
+document.addEventListener("DOMContentLoaded", ensureLoggedIn);
+
+  async function ensureLoggedIn() {
+    const CHECKS = ["/api/auth/me"];
+
+    for (const url of CHECKS) {
+      try {
+        const res = await fetch(url, {
+          method: "GET",
+          credentials: "include",
+          headers: { "Accept": "application/json" },
+          cache: "no-store"
+        });
+
+        // 인증 안 됨
+        if (res.status === 401 || res.status === 403) {
+          return redirectToLogin();
+        }
+
+        // 인증 확인됨 (JSON이면 최소 user 필드 존재 확인)
+        if (res.ok) {
+          const ct = (res.headers.get("content-type") || "").toLowerCase();
+          if (!ct.includes("application/json")) return; // 200 OK면 통과
+          const data = await res.json().catch(() => ({}));
+          if (data && (data.ok === true || data.user || data.uid || data.id)) return; // 통과
+          // 200이지만 사용자 정보 없음 → 다음 체크 시도
+        }
+
+        // 404 등은 다음 후보 체크
+      } catch {
+        // 네트워크 오류 → 다음 후보 체크
+      }
+    }
+
+    // 어떤 체크도 인증을 확정 못하면 로그인 페이지로
+    redirectToLogin();
+  }
+
+  function redirectToLogin() {
+    alert("로그인이 필요합니다.");
+    location.replace("/index.html");
+  }

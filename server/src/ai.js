@@ -1,354 +1,290 @@
-// src/ai.js
-// Express router for Gemini-based sleep recommendation.
-// - KST timezone normalization
-// - Fetch schedules & fatigue from Firestore without requiring composite indexes
-// - Builds a Korean prompt that enforces 90-minute cycles and respects fixed events
-// - Returns plain text from Gemini (no markdown rendering on server)
-// - Endpoint: POST /api/gemini/recommend
-//   Body: { userInputs: { date:'YYYY-MM-DD', sleepWindowStart:'HH:mm', wakeTime:'HH:mm', notes?:string } }
 
-import express from "express";
-import { db } from "./firebase.js";
+// server/src/ai.js (v8 — SMART duration by availability + SOL + schedules/fatigue, no "90분" wording)
+// Endpoints:
+//   POST /recommend
+//   POST /gemini/recommend
+//   POST /gemini/recommand   (legacy)
+// Default: text/plain. Accept: application/json or ?format=json → JSON.
+// Inputs (one of the two is enough):
+//   - sleepWindowStart: "23:00" | "11:00 PM" | ISO
+//   - wakeTime:         "07:00" | "7:00 AM"  | ISO
+// Optional:
+//   - solMin: 15..30 (minutes to fall asleep; default 20; clamped 15–30)
+// Notes: "notes" field is intentionally ignored.
+
+import { Router } from "express";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { db } from "./firebase.js";
 
-export const aiRouter = express.Router();
+export const aiRouter = Router();
 
-// ---------- Gemini ----------
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.GOOGLE_GEMINI_API_KEY || "");
-// Prefer the current stable model name. If your key only has Flash, change to "gemini-2.5-flash".
-const MODEL_NAME = process.env.GEMINI_MODEL || "gemini-2.5-pro";
+// --- Env (Gemini optional; only for polishing text) ---
+const GEMINI_API_KEY = process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY || "";
+const GEMINI_MODEL   = process.env.GEMINI_MODEL || "models/gemini-2.5-flash";
+const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
 
-function getModel() {
-  if (!genAI) throw new Error("Gemini client not initialized");
-  return genAI.getGenerativeModel({ model: MODEL_NAME });
-}
+// --- KST helpers ---
+const TZ = "Asia/Seoul";
+const partsKST = (d) =>
+  new Intl.DateTimeFormat("ko-KR", {
+    timeZone: TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  })
+    .formatToParts(d)
+    .reduce((acc, p) => ((acc[p.type] = p.value), acc), {});
 
-// ---------- Time helpers (KST) ----------
-const KST_TZ = "Asia/Seoul";
-const pad2 = (n) => (n < 10 ? "0" + n : "" + n);
+function ymdKST(d) { const p = partsKST(d); return `${p.year}-${p.month}-${p.day}`; }
+function hmKST(dOrIso) { const d = typeof dOrIso === "string" ? new Date(dOrIso) : dOrIso; const p = partsKST(d); return `${p.hour}:${p.minute}`; }
+function fullKST(d) { const p = partsKST(d); return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`; }
+function makeKST(dateStr, hh, mm) { const base = new Date(`${dateStr}T00:00:00+09:00`); base.setUTCMinutes(base.getUTCMinutes() + (hh*60 + mm)); return base; }
 
-function fmtKSTDate(d) {
-  // Returns YYYY-MM-DD in KST
-  const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: KST_TZ, year: "numeric", month: "2-digit", day: "2-digit" });
-  return fmt.format(d);
-}
-function fmtKSTTime(d) {
-  // HH:MM in KST
-  const fmt = new Intl.DateTimeFormat("en-GB", { timeZone: KST_TZ, hour: "2-digit", minute: "2-digit", hour12: false });
-  return fmt.format(d);
-}
-function toKSTDateObj(isoOrMillis) {
-  // Create Date but interpretation is always UTC; we only format with KST.
-  return new Date(isoOrMillis);
-}
-function parseHM(hm) {
-  // "HH:mm" -> minutes from 00:00
-  if (!hm || typeof hm !== "string") return null;
-  const [h, m] = hm.split(":").map((v) => parseInt(v, 10));
-  if (Number.isNaN(h) || Number.isNaN(m)) return null;
-  return h * 60 + m;
-}
-function fmtHM(mins) {
-  const m = ((mins % (24 * 60)) + 24 * 60) % (24 * 60);
-  const h = Math.floor(m / 60);
-  const mm = m % 60;
-  return pad2(h) + ":" + pad2(mm);
-}
-
-function addDaysStr(dateStr, days) {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  dt.setUTCDate(dt.getUTCDate() + days);
-  return fmtKSTDate(dt);
-}
-
-// ---------- Domain helpers ----------
-const PHASE_KO = {
-  BEFORE_SLEEP: "잠자기 전",
-  AFTER_SLEEP: "일어난 후",
-  DAYTIME: "생활할 때",
-};
-
-function minutesDiff(aMin, bMin) {
-  // absolute difference on circular day not required here; simple diff
-  return Math.abs(aMin - bMin);
-}
-
-function blocksToListText(blocks) {
-  if (!blocks?.length) return "(없음)";
-  return blocks
-    .sort((a, b) => a.startMin - b.startMin)
-    .map((b) => `- ${fmtHM(b.startMin)} ~ ${fmtHM(b.endMin)} ${b.title}`)
-    .join("\\n");
-}
-
-// Try to find a 90-min cycle (>= 3h) window that ends by target wake
-function chooseSleepWindowKST(earliestStartMin, targetWakeMin, hardBlocks) {
-  // hardBlocks: array [{startMin, endMin, title}] in the same day context (00:00~24:00) for the **target date**
-  // We ensure chosen sleep interval does not overlap any block.
-  const CYCLE = 90; // minutes
-  const candidates = [];
-
-  // We'll try durations from 6h down to 3h in 90-min steps
-  const durations = [6 * 60, 4.5 * 60, 3 * 60];
-  for (const dur of durations) {
-    // sleepEnd must be <= targetWakeMin
-    const end = targetWakeMin;
-    const start = end - dur;
-    if (start < earliestStartMin) continue; // start earlier than allowed window
-
-    // Check overlaps with blocks
-    const overlaps = hardBlocks.some((b) => !(end <= b.startMin || start >= b.endMin));
-    if (overlaps) continue;
-
-    // Near to cycles (already are exact cycles). Favor longer duration earlier in list.
-    candidates.push({ startMin: start, endMin: end, duration: dur });
+function parseHHMM(s) {
+  if (typeof s !== "string") return null;
+  const t = s.trim();
+  let m = t.match(/^(\d{1,2}):(\d{2})\s*([ap]m)$/i);
+  if (m) {
+    let hh = parseInt(m[1], 10), mm = parseInt(m[2], 10);
+    const ap = m[3].toLowerCase();
+    if (ap === "pm" && hh < 12) hh += 12;
+    if (ap === "am" && hh === 12) hh = 0;
+    return [hh, mm];
   }
+  m = t.match(/^(\d{2}):(\d{2})$/);
+  if (m) return [parseInt(m[1],10), parseInt(m[2],10)];
+  return null;
+}
 
-  // If none fit, try pushing later (wake later) up to +45 minutes to hit cycle close to target
-  if (!candidates.length) {
-    for (const dur of durations) {
-      for (let shift = 15; shift <= 45; shift += 15) {
-        const end = targetWakeMin + shift;
-        const start = end - dur;
-        if (start < earliestStartMin) continue;
-        const overlaps = hardBlocks.some((b) => !(end <= b.startMin || start >= b.endMin));
-        if (overlaps) continue;
-        candidates.push({ startMin: start, endMin: end, duration: dur, shifted: shift });
-        break;
+// --- Util ---
+function uid(req) { return req.session?.userId || req.user?.id || req.user?.uid || req.headers["x-user-id"] || null; }
+function wantsJson(req) { const q=(req.query?.format||"").toString().toLowerCase(); if(q==="json")return true; const a=(req.get("accept")||"").toLowerCase(); return a.includes("application/json"); }
+function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+
+// --- Firestore IO ---
+async function readSchedules(userId, dateStr) {
+  const snap = await db.collection("schedules")
+    .where("userId","==",userId)
+    .where("date","==",dateStr)
+    .get();
+  const items = snap.docs.map(d=>d.data());
+  items.sort((a,b)=> (a.startAt < b.startAt ? -1 : 1));
+  return items;
+}
+async function readFatigueSummary7d(userId, centerDateStr) {
+  const rows = [];
+  const base = new Date(`${centerDateStr}T00:00:00+09:00`);
+  for (let i=6;i>=0;i--) {
+    const d = new Date(base); d.setUTCDate(d.getUTCDate()-i);
+    const dstr = ymdKST(d);
+    const snap = await db.collection("fatigueLogs")
+      .where("userId","==",userId).where("date","==",dstr).get();
+    snap.forEach(doc=>rows.push(doc.data()));
+  }
+  const vals = rows.map(r=> Number(r.value)||0);
+  const avg = vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) : null;
+  return { count: rows.length, avg };
+}
+
+// --- Smart duration search ---
+// durations: every 30m from 3.5h..9h (210..540)
+const DURATIONS = Array.from({length:12}, (_,i)=>210 + i*30); // 210,240,...,540
+
+function chooseDuration(fatigueAvg) {
+  // baseline 7.5h (450). Adjust by fatigue: high(+60), low(-60)
+  let target = 450;
+  if (typeof fatigueAvg === "number") {
+    if (fatigueAvg >= 7) target += 60;
+    else if (fatigueAvg <= 3) target -= 60;
+  }
+  // pick closest 30-min step to target
+  let best = DURATIONS[0], bestGap = Infinity;
+  for (const d of DURATIONS) {
+    const gap = Math.abs(d - target);
+    if (gap < bestGap) { bestGap = gap; best = d; }
+  }
+  return best;
+}
+
+function fitByWake({minBed, wakeAt, solMin, fatigueAvg}) {
+  const avail = Math.max(0, Math.round((wakeAt - minBed)/60000) - solMin);
+  const pref = chooseDuration(fatigueAvg);
+  // Find best <= avail (prefer near pref, prefer longer)
+  let cand = null, bestScore = -1e9;
+  for (const d of DURATIONS) {
+    if (d > avail) continue;
+    const score = 100 - Math.abs(d - pref)/5 + d/60;
+    if (score > bestScore) { bestScore = score; cand = d; }
+  }
+  if (!cand) return null;
+  const sleepStart = new Date(wakeAt.getTime() - (cand+solMin)*60000);
+  return { sleepStart, wakeAt, sleepMin: cand };
+}
+
+function fitByBedStart({bedStart, nextLimit, solMin, fatigueAvg}) {
+  const avail = Math.max(0, Math.round((nextLimit - bedStart)/60000) - solMin);
+  if (avail <= 0) return null;
+  const pref = chooseDuration(fatigueAvg);
+  let cand = null, bestScore = -1e9;
+  for (const d of DURATIONS) {
+    if (d > avail) continue;
+    const score = 100 - Math.abs(d - pref)/5 + d/90;
+    if (score > bestScore) { bestScore = score; cand = d; }
+  }
+  if (!cand) return null;
+  const wakeAt = new Date(bedStart.getTime() + (cand+solMin)*60000);
+  return { sleepStart: bedStart, wakeAt, sleepMin: cand };
+}
+
+// --- Gemini (optional, to polish wording) ---
+async function polishWithGemini(koreanPlain) {
+  if (!genAI) return null;
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+  const prompt = [
+    "다음 한국어 문장을 더 자연스럽고 간결하게 다듬어라.",
+    "반드시 순수 텍스트만. 불릿/이모지/마크다운 금지. 시간 숫자는 바꾸지 말 것.",
+    "",
+    koreanPlain
+  ].join("\n");
+  try {
+    const res = await model.generateContent({ contents:[{role:"user",parts:[{text:prompt}]}] });
+    const text = res?.response?.text?.()?.trim();
+    return text || null;
+  } catch { return null; }
+}
+
+// --- Core handler ---
+async function handleRecommend(req, res) {
+  try {
+    const userId = uid(req);
+    if (!userId) {
+      const msg = "인증이 필요합니다. 먼저 로그인하세요.";
+      return wantsJson(req) ? res.status(401).json({ ok:false, error:msg }) : res.status(401).type("text/plain; charset=utf-8").send(msg);
+    }
+
+    const body = req.body || {};
+    const dateStr = body.date || ymdKST(new Date());
+
+    // Inputs: allow either
+    const sws = body.sleepWindowStart;
+    const wt  = body.wakeTime || body.wakeAt;
+
+    // Sleep Onset Latency (minutes to fall asleep)
+    let solMin = Number.isFinite(body.solMin) ? Math.round(body.solMin) : 20;
+    solMin = clamp(solMin, 15, 30);
+
+    // Data
+    const schedules = await readSchedules(userId, dateStr);
+    const fatigue = await readFatigueSummary7d(userId, dateStr);
+    const fatigueAvg = fatigue?.avg ?? null;
+
+    // minBed = max(22:00 KST, last schedule end)
+    let minBed = makeKST(dateStr, 22, 0);
+    if (schedules.length) {
+      const latestEnd = new Date(schedules.reduce((m,b)=> (b.endAt>m?b.endAt:m), schedules[0].endAt));
+      if (latestEnd > minBed) minBed = latestEnd;
+    }
+
+    // earliest bedStart from sws (if provided)
+    let bedStart = minBed;
+    if (typeof sws === "string") {
+      const t = parseHHMM(sws);
+      if (t) {
+        const k = makeKST(dateStr, t[0], t[1]);
+        if (k > bedStart) bedStart = k;
+      } else {
+        const d = new Date(sws);
+        if (!isNaN(d) && d > bedStart) bedStart = d;
       }
-      if (candidates.length) break;
     }
-  }
 
-  // If still none, as a fallback pick the largest gap between blocks after earliestStartMin
-  if (!candidates.length) {
-    const dayStart = 0;
-    const dayEnd = 24 * 60;
-    const ranges = [{ s: dayStart, e: dayEnd }];
-    for (const b of hardBlocks.sort((a, b) => a.startMin - b.startMin)) {
-      const last = ranges.pop();
-      if (last.s < b.startMin) ranges.push({ s: last.s, e: b.startMin });
-      if (b.endMin < last.e) ranges.push({ s: b.endMin, e: last.e });
+    // wakeAt from wt (if provided)
+    let wakeAt = null;
+    if (typeof wt === "string") {
+      const t = parseHHMM(wt);
+      if (t) {
+        wakeAt = makeKST(dateStr, t[0], t[1]);
+        if (wakeAt <= bedStart) wakeAt = new Date(wakeAt.getTime() + 24*60*60*1000);
+      } else {
+        const d = new Date(wt);
+        if (!isNaN(d)) wakeAt = d;
+      }
     }
-    const gaps = ranges
-      .map((r) => ({
-        s: Math.max(r.s, earliestStartMin),
-        e: r.e,
-      }))
-      .filter((r) => r.e - r.s >= 3 * 60);
-    if (gaps.length) {
-      // choose the one whose end is closest to (but not after) wake
-      gaps.sort((g1, g2) => Math.abs((g1.e) - targetWakeMin) - Math.abs((g2.e) - targetWakeMin));
-      const g = gaps[0];
-      // fit a 90-min chunk inside the gap ending as close to targetWakeMin
-      const end = Math.min(g.e, targetWakeMin);
-      const start = Math.max(g.s, end - 3 * 60);
-      candidates.push({ startMin: start, endMin: end, duration: end - start, note: "gap-fallback" });
+
+    // If only bedStart is known, define nextLimit = first schedule start after bedStart - 30m; else next day 09:00
+    let nextLimit = null;
+    if (!wakeAt) {
+      let nextStart = null;
+      for (const b of schedules) {
+        const s = new Date(b.startAt);
+        if (s > bedStart && (!nextStart || s < nextStart)) nextStart = s;
+      }
+      if (nextStart) nextLimit = new Date(nextStart.getTime() - 30*60000);
+      else {
+        nextLimit = makeKST(dateStr, 9, 0);
+        if (nextLimit <= bedStart) nextLimit = new Date(nextLimit.getTime() + 24*60*60*1000);
+      }
     }
-  }
-  if (!candidates.length) return null;
 
-  // Prefer longer sleep; if tie, prefer less shift; then start later (closer to wake)
-  candidates.sort((a, b) => {
-    if (b.duration !== a.duration) return b.duration - a.duration;
-    const shA = a.shifted || 0, shB = b.shifted || 0;
-    if (shA !== shB) return shA - shB;
-    return b.startMin - a.startMin;
-  });
-  return candidates[0];
-}
+    // Decide plan
+    let plan = null;
+    if (wakeAt && wakeAt > bedStart) {
+      plan = fitByWake({ minBed: bedStart, wakeAt, solMin, fatigueAvg });
+    } else if (!wakeAt) {
+      plan = fitByBedStart({ bedStart, nextLimit, solMin, fatigueAvg });
+    }
 
-function humanizeChosen(chosen) {
-  if (!chosen) return "적절한 수면 구간을 찾지 못했습니다.";
-  const durH = Math.floor(chosen.duration / 60);
-  const durM = chosen.duration % 60;
-  const durStr = durM ? `${durH}시간 ${durM}분` : `${durH}시간`;
-  return `취침 **${fmtHM(chosen.startMin)}**, 기상 **${fmtHM(chosen.endMin)}** (예상 수면 ${durStr})`;
-}
+    if (!plan) {
+      const msg = "현재 입력과 일정으로는 충분한 수면 시간을 확보하기 어렵습니다. 일정 조정이나 낮잠(20–30분)을 고려해 주세요.";
+      return wantsJson(req) ? res.status(200).json({ ok:true, source:"smart-fallback", answer:msg }) :
+                              res.status(200).type("text/plain; charset=utf-8").send(msg);
+    }
 
-// ---------- Firestore fetch (no composite indexes required) ----------
-async function fetchSchedulesForDate(uid, dateStr) {
-  // Query only by userId (no orderBy) to avoid composite indexes, then filter in memory by KST date string
-  const snap = await db.collection("schedules").where("userId", "==", uid).limit(500).get();
-  const items = [];
-  const next = addDaysStr(dateStr, 1);
-  snap.forEach((doc) => {
-    const d = doc.data();
-    if (!d) return;
-    const start = d.startAt ? toKSTDateObj(d.startAt) : null;
-    const end = d.endAt ? toKSTDateObj(d.endAt) : null;
-    const kstStartDate = start ? fmtKSTDate(start) : d.date;
-    const kstEndDate = end ? fmtKSTDate(end) : d.date;
-    const onDay =
-      kstStartDate === dateStr ||
-      kstEndDate === dateStr ||
-      (d.date === dateStr) ||
-      (kstStartDate === next && fmtKSTTime(start) < "06:00"); // early morning spillover
-    if (onDay) {
-      // prepare minutes-in-day
-      const sMin = start ? parseInt(fmtKSTTime(start).slice(0, 2), 10) * 60 + parseInt(fmtKSTTime(start).slice(3, 5), 10) : null;
-      const eMin = end ? parseInt(fmtKSTTime(end).slice(0, 2), 10) * 60 + parseInt(fmtKSTTime(end).slice(3, 5), 10) : null;
-      items.push({
-        title: d.title || "(제목 없음)",
-        date: kstStartDate || dateStr,
-        startMin: sMin ?? parseHM((d.startTime || "")),
-        endMin: eMin ?? parseHM((d.endTime || "")),
+    const minutes = plan.sleepMin;
+    const h = Math.floor(minutes/60), m = minutes%60;
+    const textRaw = [
+      `권장 수면: ${hmKST(plan.sleepStart)} 취침, ${hmKST(plan.wakeAt)} 기상 (총 ${h}시간${m?` ${m}분`:""} 수면, 잠들기 ${solMin}분 포함)`,
+      `기상 이후 첫 일정까지 준비 여유를 확인하고, 취침 ${solMin}분 전부터 조도를 낮추고 화면 사용을 줄이세요.`
+    ].join("\n");
+
+    const polished = await polishWithGemini(textRaw);
+    const finalText = polished || textRaw;
+    const source = polished ? `Gemini ${GEMINI_MODEL}` : "smart-fallback";
+
+    if (wantsJson(req)) {
+      return res.status(200).json({
+        ok: true,
+        source,
+        answer: finalText,
+        meta: {
+          date: dateStr,
+          bedStart: fullKST(plan.sleepStart),
+          wake: fullKST(plan.wakeAt),
+          minutes,
+          solMin,
+          fatigueAvg,
+        }
       });
     }
-  });
-  // filter only valid mins
-  return items.filter((b) => Number.isFinite(b.startMin) && Number.isFinite(b.endMin));
-}
 
-async function fetchFatigueRecent(uid) {
-  // Only userId filter + limit to avoid index; we'll sort in memory.
-  const snap = await db.collection("fatigueLogs").where("userId", "==", uid).limit(400).get();
-  const rows = [];
-  snap.forEach((doc) => {
-    const d = doc.data();
-    if (!d) return;
-    const created = d.createdAt ? toKSTDateObj(d.createdAt) : null;
-    rows.push({
-      type: d.type,
-      value: typeof d.value === "number" ? d.value : null,
-      date: d.date || (created ? fmtKSTDate(created) : null),
-      createdAt: created,
-    });
-  });
-  // last 7 days (KST)
-  const today = new Date();
-  const todayStr = fmtKSTDate(today);
-  const sevenAgo = new Date(today);
-  sevenAgo.setUTCDate(sevenAgo.getUTCDate() - 7);
-  const sevenAgoStr = fmtKSTDate(sevenAgo);
+    return res
+      .status(200)
+      .set("X-Plan-Source", source)
+      .type("text/plain; charset=utf-8")
+      .send(finalText);
 
-  const filtered = rows.filter((r) => r.date && r.date >= sevenAgoStr && r.date <= todayStr);
-  // group stats
-  const sums = { BEFORE_SLEEP: { c: 0, s: 0 }, AFTER_SLEEP: { c: 0, s: 0 }, DAYTIME: { c: 0, s: 0 } };
-  for (const r of filtered) {
-    if (!sums[r.type]) continue;
-    if (typeof r.value === "number") {
-      sums[r.type].c += 1;
-      sums[r.type].s += r.value;
-    }
-  }
-  const lines = Object.keys(sums).map((k) => {
-    const c = sums[k].c;
-    const avg = c ? Math.round(sums[k].s / c) : "-";
-    return `${PHASE_KO[k]}: ${c}개, 평균 ${avg}`;
-  });
-  return { lines, sampleCount: filtered.length };
-}
-
-// ---------- Prompt builder ----------
-function buildPromptKorean({ dateStr, earliestHM, wakeHM, blocks, fatigueLines, memo }) {
-  const blocksText = blocksToListText(blocks);
-  const guidance = [
-    `목표 기상 시각은 **${wakeHM} (KST)** 입니다.`,
-    `취침 시작은 **${earliestHM} (KST)** 이후여야 합니다.`,
-    `**90분 수면 주기**를 우선으로 고려하세요. 6시간(최우선) → 4시간30분 → 3시간 순으로 시도하고, 불가하면 기상 시각을 최대 45분 이내에서만 조정하세요.`,
-    `고정 일정과 **시간이 겹치면 안 됩니다**. 반드시 피해 주세요.`,
-    `수업/고정 일정 중에는 과제/독서/준비 같은 활동을 제안하지 마세요.`,
-    `결과는 한국어로, 간단하고 실천 가능한 단계로 제시하세요. 불필요한 시스템/디버그 문장은 넣지 마세요.`,
-  ].join("\\n- ");
-
-  return [
-    `당신은 개인 수면 코치입니다. 다음 정보를 바탕으로 오늘 밤 수면 계획을 제안하세요.`,
-    ``,
-    `### 날짜`,
-    `- ${dateStr} (KST)`,
-    ``,
-    `### 오늘 일정`,
-    blocksText,
-    ``,
-    `### 피로도 요약(최근 7일)`,
-    (fatigueLines && fatigueLines.length ? `- ${fatigueLines.join("\\n- ")}` : "(데이터 없음)"),
-    memo ? `\\n### 메모\\n- ${memo}` : "",
-    ``,
-    `### 지침`,
-    `- ${guidance}`,
-    ``,
-    `### 출력 형식 (예시)`,
-    `**권장 수면 계획:** 취침 HH:MM → 기상 HH:MM (예상 수면 X시간 Y분)`,
-    `1) 취침 준비: … (겹치는 일정 제안 금지)`,
-    `2) 수면: …`,
-    `3) 기상: …`,
-    ``,
-    `이제 위 형식 그대로 결과만 작성하세요.`,
-  ].join("\\n");
-}
-
-// ---------- Route ----------
-aiRouter.post("/recommend", async (req, res) => {
-  try {
-    const uid = req.user?.id || req.userId || req.uid; // session middleware should set one of these
-    if (!uid) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
-
-    const userInputs = req.body?.userInputs || req.body;
-    const dateStr = userInputs?.date || fmtKSTDate(new Date());
-    const earliestHM = userInputs?.sleepWindowStart || userInputs?.sleepEarliest || "22:30";
-    const wakeHM = userInputs?.wakeTime || "07:00";
-    const memo = (userInputs?.notes || "").toString().slice(0, 400);
-
-    // Fetch data
-    const [blocks, fatigue] = await Promise.all([
-      fetchSchedulesForDate(uid, dateStr),
-      fetchFatigueRecent(uid),
-    ]);
-
-    const fatigueLines = fatigue?.lines || [];
-
-    // For the quick local algorithm suggestion (and for guard-rails within prompt)
-    const earliestMin = parseHM(earliestHM) ?? 22 * 60 + 30;
-    const wakeMin = parseHM(wakeHM) ?? 7 * 60;
-    const chosen = chooseSleepWindowKST(earliestMin, wakeMin, blocks);
-    const chosenLine = humanizeChosen(chosen);
-
-    // Build prompt
-    const prompt = buildPromptKorean({
-      dateStr,
-      earliestHM,
-      wakeHM,
-      blocks,
-      fatigueLines,
-      memo,
-    });
-
-    // Ask Gemini (return text only)
-    const model = getModel();
-    const result = await model.generateContent({
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: prompt }],
-        },
-      ],
-      generationConfig: {
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.9,
-        maxOutputTokens: 1024,
-      },
-    });
-
-    const text = result?.response?.text?.() || "";
-    const output = text || chosenLine || "추천을 생성하지 못했습니다.";
-
-    return res.json({
-      ok: true,
-      model: MODEL_NAME,
-      date: dateStr,
-      earliest: earliestHM,
-      wake: wakeHM,
-      blocks: blocks.map((b) => ({ title: b.title, start: fmtHM(b.startMin), end: fmtHM(b.endMin) })),
-      fatigueSummary: fatigueLines,
-      fallbackPlan: chosenLine,
-      text: output,
-    });
   } catch (err) {
-    console.error("askGemini error", err);
-    const status = err?.status ? Number(err.status) : 500;
-    return res.status(status).json({ ok: false, error: err?.message || "GEN_AI_ERROR" });
+    const msg = (err && err.message) ? err.message : String(err);
+    return res.status(500).type("text/plain; charset=utf-8").send(`추천 생성 중 오류: ${msg}`);
   }
-});
+}
+
+// --- Routes ---
+aiRouter.post("/recommend", handleRecommend);
+aiRouter.post("/gemini/recommend", handleRecommend);
+aiRouter.post("/gemini/recommand", handleRecommend); // legacy
+
+export default aiRouter;

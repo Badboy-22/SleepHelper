@@ -8,8 +8,8 @@ import { sessionMiddleware, attachUser, requireAuth } from "./session.js";
 import authRouter from "./auth.js";
 import sleepRouter from "./sleep.js";
 import { aiRouter } from "./ai.js";
-import { fatigueRouter } from "./server_fatigue_routes.js";
-import { scheduleRouter } from "./server_schedule_routes.js";
+import { fatigueRouter } from "./fatigue.js";
+import { scheduleRouter } from "./schedule.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;

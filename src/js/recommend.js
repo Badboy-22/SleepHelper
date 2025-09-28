@@ -1,108 +1,86 @@
-
-// recommend.js (client) — sends top-level fields expected by /api/gemini/recommend
+// recommend.js — single input, plain text only
 const $ = (s) => document.querySelector(s);
-const toISO = (d) => d.toISOString().slice(0, 10);
 
-async function getDaySchedule(date) {
-  try {
-    const r = await fetch(`/api/schedule?date=${encodeURIComponent(date)}`, { credentials: 'same-origin' });
-    if (!r.ok) return [];
-    const { items = [] } = await r.json();
-    return Array.isArray(items) ? items : [];
-  } catch {
-    return [];
+function parseTimeToHHMM(s) {
+  if (!s) return null;
+  const t = String(s).trim();
+  let m = t.match(/^(\d{1,2}):(\d{2})\s*([ap]m)$/i);
+  if (m) {
+    let hh = parseInt(m[1], 10);
+    const mm = parseInt(m[2], 10);
+    const ap = m[3].toLowerCase();
+    if (ap === 'pm' && hh < 12) hh += 12;
+    if (ap === 'am' && hh === 12) hh = 0;
+    return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
   }
+  m = t.match(/^(\d{2}):(\d{2})$/);
+  return m ? t : null;
 }
 
-async function getRecentFatigue(days = 7) {
-  const end = new Date();
-  const out = [];
-  for (let i = 0; i < days; i++) {
-    const d = new Date(end);
-    d.setDate(end.getDate() - i);
-    const iso = toISO(d);
-    try {
-      const r = await fetch(`/api/sleep?date=${iso}`, { credentials: 'same-origin' });
-      if (r.ok) {
-        const data = await r.json();
-        if (data && data.fatigue !== undefined && data.fatigue !== null) {
-          out.push({ date: iso, value: data.fatigue });
-        }
-      }
-    } catch {}
+function updateModeUI() {
+  const mode = document.querySelector('input[name="mode"]:checked')?.value || 'wake';
+  const label = $('#timeLabel');
+  const input = $('#timeInput');
+  if (mode === 'wake') {
+    label.textContent = '언제 일어나야 하나요?';
+    input.placeholder = '07:00';
+  } else {
+    label.textContent = '몇시부터 잘 수 있나요?';
+    input.placeholder = '23:00';
   }
-  return out;
+  input.value = '';
 }
 
-async function onAskGemini(e) {
-  e.preventDefault();
-  const sleepWindowStart = $('#sleepAt')?.value?.trim() || '';
-  const wakeTime         = $('#wakeTime')?.value?.trim() || '';
-  const notes            = $('#notes')?.value?.trim() || '';
-  const date             = toISO(new Date()); // 오늘(KST는 서버에서 보정)
+async function onAsk(e) {
+  e?.preventDefault();
+  const mode = document.querySelector('input[name="mode"]:checked')?.value || 'wake';
+  const t = parseTimeToHHMM($('#timeInput')?.value || '');
+  const solMin = parseInt($('#solMin')?.value || '20', 10);
+  const out = $('#resultText');
+  const btn = $('#askBtn');
 
-  const HHMM = /^\d{2}:\d{2}$/;
-  if (!HHMM.test(sleepWindowStart) || !HHMM.test(wakeTime)) {
-    alert('시간은 HH:MM 형식(예: 22:30)으로 입력해 주세요.');
-    return;
-  }
+  if (!t) { out.textContent = '시간을 HH:MM 형식으로 입력해 주세요.'; return; }
 
-  const resultBox = $('#resultBox');
-  if (resultBox) resultBox.textContent = '요청 중…';
-
-  // 참고 데이터(옵션)
-  let clientSchedule = null;
-  let clientFatigue = null;
-  try {
-    const [schedToday, schedTomorrow, fatigue] = await Promise.all([
-      getDaySchedule(date),
-      getDaySchedule(toISO(new Date(Date.now() + 86400000))),
-      getRecentFatigue(7),
-    ]);
-    clientSchedule = { [date]: schedToday, nextDay: schedTomorrow };
-    clientFatigue = fatigue;
-  } catch {}
+  const payload = mode === 'wake'
+    ? { wakeTime: t, solMin }
+    : { sleepWindowStart: t, solMin };
 
   try {
-    const r = await fetch('/api/gemini/recommend', {
+    if (btn) btn.disabled = true;
+    out.textContent = '추천 생성 중...';
+
+    const res = await fetch('/api/gemini/recommend', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Accept': 'text/plain' },
       credentials: 'same-origin',
-      body: JSON.stringify({
-        // 서버가 요구하는 최상위 필드
-        sleepWindowStart,
-        wakeTime,
-        date,
-        notes,
-        // 참조용(옵션)
-        schedule: clientSchedule,
-        fatigue: clientFatigue,
-      }),
+      body: JSON.stringify(payload)
     });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      const msg = data?.error || data?.message || '요청 실패';
-      throw new Error(`${r.status} ${msg}`);
-    }
-    const text = data?.text ?? data?.result ?? data?.content ?? JSON.stringify(data, null, 2);
-    if (resultBox) resultBox.textContent = text;
-  } catch (err) {
-    if (resultBox) resultBox.textContent = `요청 실패: ${err.message}`;
-    console.error(err);
-  }
-}
 
-function hookLogout() {
-  $('#logoutBtn')?.addEventListener('click', async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
-    } finally {
-      location.href = '/index.html';
+    const ct = (res.headers.get('content-type') || '').toLowerCase();
+    if (ct.includes('application/json')) {
+      const j = await res.json();
+      out.textContent = j?.answer || JSON.stringify(j, null, 2);
+    } else {
+      out.textContent = await res.text();
     }
-  });
+  } catch (err) {
+    out.textContent = '요청 실패: ' + (err?.message || String(err));
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  $('#askGemini')?.addEventListener('click', onAskGemini);
-  hookLogout();
+  document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener('change', updateModeUI));
+  updateModeUI();
+  $('#solMin')?.addEventListener('input', () => { $('#solVal').textContent = `${$('#solMin').value}분`; });
+  $('#askBtn')?.addEventListener('click', onAsk);
+});
+
+document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+  try {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+  } finally {
+    location.href = '/index.html';
+  }
 });

@@ -1,70 +1,33 @@
+/* recommend.css — minimal, plain text result */
+:root {
+    --border: #e5e5e5;
+    --fg: #111;
+    --muted: #666;
+    --bg: #fff;
+    --surface: #fafafa;
+}
+
+* {
+    box-sizing: border-box
+}
+
+html,
 body {
-    font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     margin: 0;
     padding: 0;
-}
-html {
-    margin: 0;
-    padding: 0;
-}
-
-/* Recommend page */
-.topbar {
-    position: sticky;
-    top: 0;
-    z-index: 50;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 16px;
-    background: #f7f7f7;
-    border-bottom: 1px solid #e6e6e6
-}
-
-.nav {
-    display: flex;
-    gap: 16px;
-    align-items: center
-}
-
-.nav a {
-    color: #333;
-    text-decoration: none;
-    padding: 6px 2px;
-    font-weight: 500
-}
-
-.nav a:hover {
-    text-decoration: underline;
-    color: #111
-}
-
-.nav a[aria-current="page"] {
-    font-weight: 700;
-    text-decoration: underline
-}
-
-.logout-btn {
-    border: 1px solid #a0a0a0;
-    background: #fff;
-    color: #111;
-    padding: 6px 12px;
-    border-radius: 8px;
-    font: inherit;
-    cursor: pointer
-}
-
-.logout-btn:hover {
-    box-shadow: 0 1px 4px rgba(0, 0, 0, .12)
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.6 Segoe UI, system-ui;
 }
 
 .container {
     width: 90%;
-    margin: 12px auto
+    max-width: 1000px;
+    margin: 16px auto
 }
 
 .form {
-    border: 1px solid #d9d9d9;
+    border: 1px solid var(--border);
     border-radius: 10px;
     background: #fff;
     padding: 16px
@@ -78,7 +41,7 @@ html {
     align-items: center
 }
 
-button {
+.actions button {
     padding: 8px 12px;
     border: 1px solid #999;
     border-radius: 6px;
@@ -86,21 +49,154 @@ button {
     cursor: pointer
 }
 
-button:hover {
+.actions button:hover {
     box-shadow: 0 1px 3px rgba(0, 0, 0, .15)
+}
+
+.mode {
+    display: flex;
+    gap: 8px;
+    margin: 4px 0 12px;
+    border: none;
+    padding: 0
+}
+
+.seg {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid #d0d0d0;
+    border-radius: 999px;
+    padding: 6px 12px;
+    cursor: pointer;
+    user-select: none
+}
+
+.seg input {
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border: 1px solid #bbb;
+    border-radius: 50%;
+    display: inline-block
+}
+
+.seg input:checked {
+    background: #111;
+    border-color: #111;
+    box-shadow: inset 0 0 0 2px #fff
+}
+
+.seg:hover {
+    background: #f6f6f6
+}
+
+.sol-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px
+}
+
+#solMin {
+    width: 220px
+}
+
+#solVal {
+    min-width: 48px;
+    display: inline-block;
+    text-align: right;
+    color: #444
 }
 
 .result {
     margin-top: 16px;
-    border: 1px solid #d9d9d9;
+    border: 1px solid var(--border);
     border-radius: 10px;
-    background: #fafafa;
-    padding: 16px;
-    white-space: pre-wrap
+    background: var(--surface);
+    padding: 16px
+}
+
+.raw {
+    margin: 0;
+    white-space: pre-wrap;
+    color: #222
 }
 
 @media(max-width:720px) {
     .row {
         grid-template-columns: 1fr
     }
+
+    #solMin {
+        width: 100%
+    }
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0
+}
+
+input {
+    font-size: 14px;
+    font: inherit;
+}
+
+pre {
+    font: inherit;
+}
+
+.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background: #f7f7f7;
+    border-bottom: 1px solid #e6e6e6;
+}
+
+.nav {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.nav a {
+    color: #333;
+    text-decoration: none;
+    padding: 6px 2px;
+    font-weight: 500;
+}
+
+.nav a:hover {
+    text-decoration: underline;
+    color: #111;
+}
+
+.nav a[aria-current="page"] {
+    font-weight: 700;
+    text-decoration: underline;
+}
+
+.logout-btn {
+    border: 1px solid #a0a0a0;
+    background: #fff;
+    color: #111;
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.logout-btn:hover {
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .12);
 }

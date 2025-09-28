@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="ko">
 
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>추천</title>
+  <title>수면 추천</title>
   <link rel="stylesheet" href="/src/css/recommend.css" />
 </head>
 
@@ -18,26 +18,44 @@
     </nav>
     <button id="logoutBtn" class="logout-btn">로그아웃</button>
   </header>
-
   <div class="container">
-    <section class="form">
-      <h2>추천받기</h2>
+    <section class="form" aria-labelledby="title">
+      <h2 id="title">추천받기</h2>
+
+      <fieldset class="mode">
+        <legend class="sr-only">추천 기준 선택</legend>
+        <label class="seg">
+          <input type="radio" name="mode" value="wake" checked />
+          <span>기상 기준</span>
+        </label>
+        <label class="seg">
+          <input type="radio" name="mode" value="sleep" />
+          <span>취침 기준</span>
+        </label>
+      </fieldset>
+
       <div class="row">
-        <label>언제 잠잘 수 있나요?</label>
-        <input id="sleepAt" type="time">
+        <label for="timeInput" id="timeLabel">언제 일어나야 하나요?</label>
+        <input id="timeInput" type="time" placeholder="07:00" />
       </div>
+
       <div class="row">
-        <label>언제 일어나야 하나요?</label>
-        <input id="wakeTime" type="time">
+        <label for="solMin">잠들기까지 시간</label>
+        <div class="sol-wrap">
+          <input id="solMin" type="range" min="1" max="60" step="1" value="20" />
+          <output id="solVal" for="solMin">20분</output>
+        </div>
       </div>
-      <div class="row">
-        <label>내일 특별한 게 있나요?</label>
-        <textarea id="notes" rows="3" placeholder="예: 내일 시험, 9시 전에 2시간 공부 필요"></textarea>
+
+      <div class="row actions">
+        <label></label>
+        <button id="askBtn">추천받기</button>
       </div>
-      <div class="row"><label></label><button id="askGemini">추천받기</button></div>
     </section>
 
-    <section class="result" id="resultBox" aria-live="polite"></section>
+    <section class="result" aria-live="polite">
+      <pre id="resultText" class="raw"></pre>
+    </section>
   </div>
 
   <script type="module" src="/src/js/recommend.js"></script>

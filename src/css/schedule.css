@@ -228,3 +228,8 @@ button:hover {
     height: 800px;
   }
 }
+
+input {
+  font-size: 14px;
+  font: inherit;
+}
